@@ -36,6 +36,7 @@ Build a lightweight learning tracker centered on a weekly commitment model: X ho
 - Keep category and topic records normalized so sessions can link back to the correct area without duplication.
 - Derive topic totals, recency, and curriculum completion from session history instead of storing stale copies.
 - Reserve space for revision, notification, and future analytics fields without overcomplicating the first schema.
+- Status: implemented in the backend as a local SQLite database with seeded sample data and API routes backed by persistent tables.
 
 ## 5) Phase 1 — Weekly commitment + optional buffer
 - Build the primary dashboard and weekly summary for the required learning budget.

@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { fetchDashboardData } from '../lib/api';
 
 export default function HomePage() {
   const [dashboard, setDashboard] = useState(null);
@@ -15,21 +14,13 @@ export default function HomePage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [dashboardRes, categoriesRes, topicsRes, sessionsRes] = await Promise.all([
-          fetch(`${API_URL}/api/dashboard`),
-          fetch(`${API_URL}/api/categories`),
-          fetch(`${API_URL}/api/topics`),
-          fetch(`${API_URL}/api/sessions`),
-        ]);
+        const { dashboard: dashboardData, categories: categoryData, topics: topicData, sessions: sessionData } =
+          await fetchDashboardData();
 
-        if (!dashboardRes.ok || !categoriesRes.ok || !topicsRes.ok || !sessionsRes.ok) {
-          throw new Error('One or more API requests failed.');
-        }
-
-        setDashboard(await dashboardRes.json());
-        setCategories(await categoriesRes.json());
-        setTopics(await topicsRes.json());
-        setSessions(await sessionsRes.json());
+        setDashboard(dashboardData);
+        setCategories(categoryData);
+        setTopics(topicData);
+        setSessions(sessionData);
       } catch (err) {
         setError(err.message || 'Unable to load the dashboard data.');
       } finally {
