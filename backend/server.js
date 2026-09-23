@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
@@ -10,135 +11,39 @@ const dbDir = path.join(__dirname, 'data');
 const dbPath = path.join(dbDir, 'growly.db');
 
 fs.mkdirSync(dbDir, { recursive: true });
-
 const db = new sqlite3.Database(dbPath);
 
 const defaultSettings = {
   timezone: 'UTC',
-  weeklyCommitmentMinutes: 7 * 60,
-  weeklyBufferMinutes: 2 * 60,
-  revisionSlots: 2,
+  weeklyCommitmentMinutes: 0,
+  weeklyBufferMinutes: 0,
+  revisionSlots: 0,
   weekStartDay: 'Sunday',
   notificationPreferences: {
-    studyReminders: true,
+    studyReminders: false,
     browserNotifications: false,
   },
 };
 
-const defaultCategories = [
-  {
-    id: 'cat-1',
-    name: 'Data Engineering',
-    description: 'Systems, pipelines, and data platform fundamentals.',
-    curriculumEnabled: true,
-    archivedAt: null,
-  },
-  {
-    id: 'cat-2',
-    name: 'Product Thinking',
-    description: 'Research, strategy, and communication patterns.',
-    curriculumEnabled: false,
-    archivedAt: null,
-  },
-];
-
-const defaultTopics = [
-  {
-    id: 'topic-1',
-    categoryId: 'cat-1',
-    name: 'Data modeling basics',
-    status: 'Completed',
-    completedAt: '2026-09-20',
-    notes: 'Normalized schemas and table design review.',
-  },
-  {
-    id: 'topic-2',
-    categoryId: 'cat-1',
-    name: 'ETL orchestration',
-    status: 'In Progress',
-    completedAt: null,
-    notes: 'Focus on Airflow-style scheduling and retries.',
-  },
-  {
-    id: 'topic-3',
-    categoryId: 'cat-1',
-    name: 'Warehouse performance tuning',
-    status: 'Not started',
-    completedAt: null,
-    notes: 'Comparing sort keys, partitioning, and clustering.',
-  },
-  {
-    id: 'topic-4',
-    categoryId: 'cat-1',
-    name: 'Data quality checks',
-    status: 'Not started',
-    completedAt: null,
-    notes: 'Validation patterns and anomaly detection.',
-  },
-  {
-    id: 'topic-5',
-    categoryId: 'cat-2',
-    name: 'Customer interviews',
-    status: 'Completed',
-    completedAt: '2026-09-18',
-    notes: 'Summaries and insight extraction.',
-  },
-  {
-    id: 'topic-6',
-    categoryId: 'cat-2',
-    name: 'Messaging frameworks',
-    status: 'In Progress',
-    completedAt: null,
-    notes: 'Positioning and story clarity exercises.',
-  },
-];
-
-const defaultSessions = [
-  {
-    id: 'session-1',
-    categoryId: 'cat-1',
-    topicId: 'topic-1',
-    topicName: 'Data modeling basics',
-    date: '2026-09-20',
-    durationMinutes: 90,
-    sessionType: 'learning',
-    outcome: 'Improved indexing and schema review',
-    notes: 'Read design notes and mapped table relationships.',
-  },
-  {
-    id: 'session-2',
-    categoryId: 'cat-1',
-    topicId: 'topic-2',
-    topicName: 'ETL orchestration',
-    date: '2026-09-22',
-    durationMinutes: 60,
-    sessionType: 'learning',
-    outcome: 'Reviewed retry logic',
-    notes: 'Looked at dependency patterns and scheduler edge cases.',
-  },
-  {
-    id: 'session-3',
-    categoryId: 'cat-2',
-    topicId: 'topic-5',
-    topicName: 'Customer interviews',
-    date: '2026-09-19',
-    durationMinutes: 45,
-    sessionType: 'revision',
-    outcome: 'Strengthened interview synthesis',
-    notes: 'Revisited the top themes from previous conversations.',
-  },
-  {
-    id: 'session-4',
-    categoryId: 'cat-1',
-    topicId: null,
-    topicName: null,
-    date: '2026-09-23',
-    durationMinutes: 30,
-    sessionType: 'learning',
-    outcome: 'Unstructured study block',
-    notes: 'Explored pipeline monitoring and alerting concepts.',
-  },
-];
+async function clearDatabaseTables() {
+  await runSql('DELETE FROM sessions');
+  await runSql('DELETE FROM topics');
+  await runSql('DELETE FROM categories');
+  await runSql('DELETE FROM settings');
+  await runSql(
+    `INSERT INTO settings (id, timezone, weekly_commitment_minutes, weekly_buffer_minutes, revision_slots, week_start_day, notification_preferences)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      'primary',
+      defaultSettings.timezone,
+      defaultSettings.weeklyCommitmentMinutes,
+      defaultSettings.weeklyBufferMinutes,
+      defaultSettings.revisionSlots,
+      defaultSettings.weekStartDay,
+      JSON.stringify(defaultSettings.notificationPreferences),
+    ],
+  );
+}
 
 function execSql(sql) {
   return new Promise((resolve, reject) => {
@@ -196,10 +101,10 @@ function normalizeSettings(row) {
     : rawNotificationPreferences;
 
   return {
-    timezone: source.timezone,
-    weeklyCommitmentMinutes: source.weeklyCommitmentMinutes ?? source.weekly_commitment_minutes ?? defaultSettings.weeklyCommitmentMinutes,
-    weeklyBufferMinutes: source.weeklyBufferMinutes ?? source.weekly_buffer_minutes ?? defaultSettings.weeklyBufferMinutes,
-    revisionSlots: source.revisionSlots ?? source.revision_slots ?? defaultSettings.revisionSlots,
+    timezone: source.timezone ?? defaultSettings.timezone,
+    weeklyCommitmentMinutes: Number(source.weeklyCommitmentMinutes ?? source.weekly_commitment_minutes ?? defaultSettings.weeklyCommitmentMinutes),
+    weeklyBufferMinutes: Number(source.weeklyBufferMinutes ?? source.weekly_buffer_minutes ?? defaultSettings.weeklyBufferMinutes),
+    revisionSlots: Number(source.revisionSlots ?? source.revision_slots ?? defaultSettings.revisionSlots),
     weekStartDay: source.weekStartDay ?? source.week_start_day ?? defaultSettings.weekStartDay,
     notificationPreferences: parsedNotificationPreferences || defaultSettings.notificationPreferences,
   };
@@ -234,7 +139,7 @@ function normalizeSession(row) {
     topicId: row.topic_id,
     topicName: row.topic_name,
     date: row.date,
-    durationMinutes: row.duration_minutes,
+    durationMinutes: Number(row.duration_minutes),
     sessionType: row.session_type,
     outcome: row.outcome,
     notes: row.notes,
@@ -246,82 +151,60 @@ async function ensureDatabase() {
   await execSql(schema);
 
   const existingSettings = await getSql('SELECT * FROM settings WHERE id = ?', ['primary']);
-  if (!existingSettings) {
-    await runSql(
-      `INSERT INTO settings (id, timezone, weekly_commitment_minutes, weekly_buffer_minutes, revision_slots, week_start_day, notification_preferences)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        'primary',
-        defaultSettings.timezone,
-        defaultSettings.weeklyCommitmentMinutes,
-        defaultSettings.weeklyBufferMinutes,
-        defaultSettings.revisionSlots,
-        defaultSettings.weekStartDay,
-        JSON.stringify(defaultSettings.notificationPreferences),
-      ],
-    );
-  }
+  const shouldReset = process.env.GROWLY_RESET_DB !== 'false';
 
-  const categoryCount = await getSql('SELECT COUNT(*) AS count FROM categories');
-  if ((categoryCount?.count || 0) === 0) {
-    for (const category of defaultCategories) {
-      await runSql(
-        `INSERT INTO categories (id, name, description, curriculum_enabled, archived_at)
-         VALUES (?, ?, ?, ?, ?)`,
-        [
-          category.id,
-          category.name,
-          category.description,
-          category.curriculumEnabled ? 1 : 0,
-          category.archivedAt,
-        ],
-      );
-    }
-  }
-
-  const topicCount = await getSql('SELECT COUNT(*) AS count FROM topics');
-  if ((topicCount?.count || 0) === 0) {
-    for (const topic of defaultTopics) {
-      await runSql(
-        `INSERT INTO topics (id, category_id, name, status, completed_at, notes)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [
-          topic.id,
-          topic.categoryId,
-          topic.name,
-          topic.status,
-          topic.completedAt,
-          topic.notes,
-        ],
-      );
-    }
-  }
-
-  const sessionCount = await getSql('SELECT COUNT(*) AS count FROM sessions');
-  if ((sessionCount?.count || 0) === 0) {
-    for (const session of defaultSessions) {
-      await runSql(
-        `INSERT INTO sessions (id, category_id, topic_id, topic_name, date, duration_minutes, session_type, outcome, notes)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          session.id,
-          session.categoryId,
-          session.topicId,
-          session.topicName,
-          session.date,
-          session.durationMinutes,
-          session.sessionType,
-          session.outcome,
-          session.notes,
-        ],
-      );
-    }
+  if (shouldReset || !existingSettings) {
+    await clearDatabaseTables();
   }
 }
 
 async function fetchSettings() {
   const row = await getSql('SELECT * FROM settings WHERE id = ?', ['primary']);
   return normalizeSettings(row || defaultSettings);
+}
+
+async function saveSettings(payload) {
+  const nextSettings = {
+    timezone: payload.timezone || defaultSettings.timezone,
+    weeklyCommitmentMinutes: Number(payload.weeklyCommitmentMinutes || defaultSettings.weeklyCommitmentMinutes),
+    weeklyBufferMinutes: Number(payload.weeklyBufferMinutes || defaultSettings.weeklyBufferMinutes),
+    revisionSlots: Number(payload.revisionSlots || defaultSettings.revisionSlots),
+    weekStartDay: payload.weekStartDay || defaultSettings.weekStartDay,
+    notificationPreferences: payload.notificationPreferences || defaultSettings.notificationPreferences,
+  };
+
+  const existingSettings = await getSql('SELECT * FROM settings WHERE id = ?', ['primary']);
+  const values = [
+    nextSettings.timezone,
+    nextSettings.weeklyCommitmentMinutes,
+    nextSettings.weeklyBufferMinutes,
+    nextSettings.revisionSlots,
+    nextSettings.weekStartDay,
+    JSON.stringify(nextSettings.notificationPreferences),
+    'primary',
+  ];
+
+  if (existingSettings) {
+    await runSql(
+      `UPDATE settings
+       SET timezone = ?,
+           weekly_commitment_minutes = ?,
+           weekly_buffer_minutes = ?,
+           revision_slots = ?,
+           week_start_day = ?,
+           notification_preferences = ?
+       WHERE id = ?`,
+      values,
+    );
+  } else {
+    await runSql(
+      `INSERT INTO settings (id, timezone, weekly_commitment_minutes, weekly_buffer_minutes, revision_slots, week_start_day, notification_preferences)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      ['primary', ...values.slice(0, 6)],
+    );
+  }
+
+  return fetchSettings();
 }
 
 async function fetchCategories() {
@@ -347,6 +230,83 @@ async function fetchSessions() {
   return rows.map(normalizeSession);
 }
 
+async function createCategory(payload) {
+  const name = String(payload.name || '').trim();
+  if (!name) {
+    throw new Error('Category name is required.');
+  }
+
+  const id = crypto.randomUUID();
+  await runSql(
+    `INSERT INTO categories (id, name, description, curriculum_enabled, archived_at)
+     VALUES (?, ?, ?, ?, ?)`,
+    [id, name, payload.description || null, payload.curriculumEnabled ? 1 : 0, null],
+  );
+
+  const row = await getSql('SELECT * FROM categories WHERE id = ?', [id]);
+  return normalizeCategory(row);
+}
+
+async function createTopic(payload) {
+  const name = String(payload.name || '').trim();
+  if (!name) {
+    throw new Error('Topic name is required.');
+  }
+
+  const categoryId = payload.categoryId || null;
+  if (!categoryId) {
+    throw new Error('A category is required to create a topic.');
+  }
+
+  const id = crypto.randomUUID();
+  await runSql(
+    `INSERT INTO topics (id, category_id, name, status, completed_at, notes)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [id, categoryId, name, payload.status || 'Not started', payload.completedAt || null, payload.notes || null],
+  );
+
+  const row = await getSql('SELECT * FROM topics WHERE id = ?', [id]);
+  return normalizeTopic(row);
+}
+
+async function createSession(payload) {
+  const durationMinutes = Number(payload.durationMinutes || 0);
+  if (!durationMinutes) {
+    throw new Error('Session duration must be greater than zero.');
+  }
+
+  const date = payload.date || new Date().toISOString().slice(0, 10);
+  const sessionType = payload.sessionType || 'learning';
+  const id = crypto.randomUUID();
+  const categoryId = payload.categoryId || null;
+  const topicId = payload.topicId || null;
+
+  let topicName = payload.topicName || null;
+  if (topicId) {
+    const topic = await getSql('SELECT name FROM topics WHERE id = ?', [topicId]);
+    topicName = topic ? topic.name : null;
+  }
+
+  await runSql(
+    `INSERT INTO sessions (id, category_id, topic_id, topic_name, date, duration_minutes, session_type, outcome, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      categoryId,
+      topicId,
+      topicName,
+      date,
+      durationMinutes,
+      sessionType,
+      payload.outcome || null,
+      payload.notes || null,
+    ],
+  );
+
+  const row = await getSql('SELECT * FROM sessions WHERE id = ?', [id]);
+  return normalizeSession(row);
+}
+
 app.use(cors({ origin: process.env.CORS_ORIGIN || true }));
 app.use(express.json());
 
@@ -357,6 +317,15 @@ app.get('/health', (req, res) => {
 app.get('/api/settings', async (req, res) => {
   const settings = await fetchSettings();
   res.json(settings);
+});
+
+app.put('/api/settings', async (req, res) => {
+  try {
+    const updatedSettings = await saveSettings(req.body || {});
+    res.json(updatedSettings);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
 });
 
 app.get('/api/dashboard', async (req, res) => {
@@ -370,9 +339,9 @@ app.get('/api/dashboard', async (req, res) => {
   const totalMinutes = sessions.reduce((sum, session) => sum + Number(session.durationMinutes || 0), 0);
   const commitmentMinutes = Number(settings.weeklyCommitmentMinutes || 0);
   const bufferMinutes = Number(settings.weeklyBufferMinutes || 0);
-  const commitmentProgress = Math.min((totalMinutes / commitmentMinutes) * 100, 100);
+  const commitmentProgress = commitmentMinutes > 0 ? Math.min((totalMinutes / commitmentMinutes) * 100, 100) : 0;
   const overflowMinutes = Math.max(totalMinutes - commitmentMinutes, 0);
-  const bufferProgress = Math.min((overflowMinutes / bufferMinutes) * 100, 100);
+  const bufferProgress = bufferMinutes > 0 ? Math.min((overflowMinutes / bufferMinutes) * 100, 100) : 0;
 
   res.json({
     weekStartDay: settings.weekStartDay,
@@ -392,14 +361,41 @@ app.get('/api/categories', async (req, res) => {
   res.json(categories);
 });
 
+app.post('/api/categories', async (req, res) => {
+  try {
+    const category = await createCategory(req.body || {});
+    res.status(201).json(category);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 app.get('/api/topics', async (req, res) => {
   const topics = await fetchTopics();
   res.json(topics);
 });
 
+app.post('/api/topics', async (req, res) => {
+  try {
+    const topic = await createTopic(req.body || {});
+    res.status(201).json(topic);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 app.get('/api/sessions', async (req, res) => {
   const sessions = await fetchSessions();
   res.json(sessions);
+});
+
+app.post('/api/sessions', async (req, res) => {
+  try {
+    const session = await createSession(req.body || {});
+    res.status(201).json(session);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
 });
 
 ensureDatabase()

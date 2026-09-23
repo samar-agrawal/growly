@@ -1,22 +1,47 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-export async function fetchJson(path) {
-  const response = await fetch(`${API_BASE_URL}${path}`);
+export async function requestJson(path, options = {}) {
+  const { method = 'GET', body } = options;
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
 
   if (!response.ok) {
-    throw new Error(`Request failed for ${path}: ${response.status}`);
+    throw new Error(data?.error || `Request failed for ${path}: ${response.status}`);
   }
 
-  return response.json();
+  return data;
 }
 
 export async function fetchDashboardData() {
-  const [dashboard, categories, topics, sessions] = await Promise.all([
-    fetchJson('/api/dashboard'),
-    fetchJson('/api/categories'),
-    fetchJson('/api/topics'),
-    fetchJson('/api/sessions'),
+  const [settings, dashboard, categories, topics, sessions] = await Promise.all([
+    requestJson('/api/settings'),
+    requestJson('/api/dashboard'),
+    requestJson('/api/categories'),
+    requestJson('/api/topics'),
+    requestJson('/api/sessions'),
   ]);
 
-  return { dashboard, categories, topics, sessions };
+  return { settings, dashboard, categories, topics, sessions };
+}
+
+export async function saveSettings(settings) {
+  return requestJson('/api/settings', { method: 'PUT', body: settings });
+}
+
+export async function createCategory(category) {
+  return requestJson('/api/categories', { method: 'POST', body: category });
+}
+
+export async function createTopic(topic) {
+  return requestJson('/api/topics', { method: 'POST', body: topic });
+}
+
+export async function createSession(session) {
+  return requestJson('/api/sessions', { method: 'POST', body: session });
 }
