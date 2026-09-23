@@ -13,7 +13,7 @@ Growly is a weekly learning tracker built around a weekly commitment model, opti
 
 The app supports:
 - changing weekly commitment and buffer settings
-- creating categories and topics
+- creating Focus Areas and subtopics
 - logging study and revision sessions
 - updating the dashboard totals based on the stored data
 
@@ -26,6 +26,8 @@ From the project root:
 ```bash
 npm install --prefix backend
 npm install --prefix frontend
+npm run dev --prefix backend
+# In a second terminal:
 npm run dev --prefix frontend
 ```
 
@@ -86,3 +88,9 @@ The backend exposes a real local data contract:
 ## Notes
 
 This implementation keeps the app simple but real: settings and session data are persisted in SQLite, and the dashboard updates from the database immediately after changes are saved.
+
+Settings and learning records survive backend restarts. Docker Compose stores SQLite in the `growly-data` volume. `GROWLY_RESET_DB=true` explicitly clears all records on startup; leave it unset for normal use. `GROWLY_DATA_DIR` can override the database directory.
+
+Weekly totals follow your chosen timezone and week start. Set commitment and optional buffer in Settings (quarter-hour increments are supported). Add subtopics directly from their Focus Area card.
+
+Run persistence and weekly-total regression checks with `npm test --prefix backend`.

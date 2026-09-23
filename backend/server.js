@@ -7,7 +7,7 @@ const sqlite3 = require('sqlite3').verbose();
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
-const dbDir = path.join(__dirname, 'data');
+const dbDir = process.env.GROWLY_DATA_DIR || path.join(__dirname, 'data');
 const dbPath = path.join(dbDir, 'growly.db');
 
 fs.mkdirSync(dbDir, { recursive: true });
@@ -151,10 +151,12 @@ async function ensureDatabase() {
   await execSql(schema);
 
   const existingSettings = await getSql('SELECT * FROM settings WHERE id = ?', ['primary']);
-  const shouldReset = process.env.GROWLY_RESET_DB !== 'false';
+  const shouldReset = process.env.GROWLY_RESET_DB === 'true';
 
-  if (shouldReset || !existingSettings) {
+  if (shouldReset) {
     await clearDatabaseTables();
+  } else if (!existingSettings) {
+    await saveSettings(defaultSettings);
   }
 }
 
@@ -164,6 +166,14 @@ async function fetchSettings() {
 }
 
 async function saveSettings(payload) {
+  const current = await fetchSettings();
+  payload = { ...current, ...payload };
+  for (const key of ['weeklyCommitmentMinutes', 'weeklyBufferMinutes', 'revisionSlots']) {
+    if (!Number.isInteger(Number(payload[key])) || Number(payload[key]) < 0) throw new Error('Weekly hours and revision slots must be non-negative numbers.');
+  }
+  if (Number(payload.weeklyCommitmentMinutes) + Number(payload.weeklyBufferMinutes) > 10080) throw new Error('Weekly commitment and buffer cannot exceed 168 hours.');
+  if (!['Monday', 'Sunday'].includes(payload.weekStartDay)) throw new Error('Choose Monday or Sunday as the week start.');
+  try { new Intl.DateTimeFormat('en', { timeZone: payload.timezone }).format(); } catch { throw new Error('Enter a valid timezone, such as Europe/Berlin or UTC.'); }
   const nextSettings = {
     timezone: payload.timezone || defaultSettings.timezone,
     weeklyCommitmentMinutes: Number(payload.weeklyCommitmentMinutes || defaultSettings.weeklyCommitmentMinutes),
@@ -233,7 +243,7 @@ async function fetchSessions() {
 async function createCategory(payload) {
   const name = String(payload.name || '').trim();
   if (!name) {
-    throw new Error('Category name is required.');
+    throw new Error('Focus Area name is required.');
   }
 
   const id = crypto.randomUUID();
@@ -250,19 +260,21 @@ async function createCategory(payload) {
 async function createTopic(payload) {
   const name = String(payload.name || '').trim();
   if (!name) {
-    throw new Error('Topic name is required.');
+    throw new Error('Subtopic name is required.');
   }
 
   const categoryId = payload.categoryId || null;
   if (!categoryId) {
-    throw new Error('A category is required to create a topic.');
+    throw new Error('A Focus Area is required to create a subtopic.');
   }
 
+  if (!await getSql('SELECT id FROM categories WHERE id = ?', [categoryId])) throw new Error('Choose an existing Focus Area.');
+  if (payload.status && !['Not started', 'In Progress', 'Completed'].includes(payload.status)) throw new Error('Choose a valid subtopic status.');
   const id = crypto.randomUUID();
   await runSql(
     `INSERT INTO topics (id, category_id, name, status, completed_at, notes)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [id, categoryId, name, payload.status || 'Not started', payload.completedAt || null, payload.notes || null],
+    [id, categoryId, name, payload.status || 'Not started', payload.status === 'Completed' ? new Date().toISOString().slice(0, 10) : null, payload.notes || null],
   );
 
   const row = await getSql('SELECT * FROM topics WHERE id = ?', [id]);
@@ -271,7 +283,7 @@ async function createTopic(payload) {
 
 async function createSession(payload) {
   const durationMinutes = Number(payload.durationMinutes || 0);
-  if (!durationMinutes) {
+  if (!Number.isInteger(durationMinutes) || durationMinutes <= 0) {
     throw new Error('Session duration must be greater than zero.');
   }
 
@@ -336,7 +348,14 @@ app.get('/api/dashboard', async (req, res) => {
     fetchSessions(),
   ]);
 
-  const totalMinutes = sessions.reduce((sum, session) => sum + Number(session.durationMinutes || 0), 0);
+  const localToday = new Intl.DateTimeFormat('en-CA', { timeZone: settings.timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const start = new Date(`${localToday}T00:00:00Z`);
+  const startDay = settings.weekStartDay === 'Monday' ? 1 : 0;
+  start.setUTCDate(start.getUTCDate() - (start.getUTCDay() - startDay + 7) % 7);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 7);
+  const weeklySessions = sessions.filter(session => session.date >= start.toISOString().slice(0, 10) && session.date < end.toISOString().slice(0, 10));
+  const totalMinutes = weeklySessions.reduce((sum, session) => sum + Number(session.durationMinutes || 0), 0);
   const commitmentMinutes = Number(settings.weeklyCommitmentMinutes || 0);
   const bufferMinutes = Number(settings.weeklyBufferMinutes || 0);
   const commitmentProgress = commitmentMinutes > 0 ? Math.min((totalMinutes / commitmentMinutes) * 100, 100) : 0;
@@ -352,7 +371,7 @@ app.get('/api/dashboard', async (req, res) => {
     bufferProgress,
     categories: categories.length,
     topics: topics.length,
-    sessions: sessions.length,
+    sessions: weeklySessions.length,
   });
 });
 
@@ -400,8 +419,8 @@ app.post('/api/sessions', async (req, res) => {
 
 ensureDatabase()
   .then(() => {
-    app.listen(port, () => {
-      console.log(`Growly backend listening on http://localhost:${port}`);
+    const server = app.listen(port, () => {
+      console.log(`Growly backend listening on http://localhost:${server.address().port}`);
     });
   })
   .catch((error) => {
