@@ -15,12 +15,13 @@ Build a lightweight learning tracker centered on a weekly commitment model: X ho
 - Add support for adding data, topic / category, curriculum.
 - Keep the first pass visually simple and static so the team can validate the workflow before backend integration.
 
-## 2) Frontend and backend scaffold with Docker
+## 2) Frontend and backend scaffold with Docker and readme
 - Create the project shell with a frontend app and a backend API, along with a Docker Compose setup for local development.
 - Add base config for environment variables, shared services, dependency management, and health checks.
 - Keep the initial app structure intentionally lean: dashboard, categories, topics, sessions, and summary views.
 - Include the local database service and ensure the app can run with one command in a fresh environment.
 - Expect the scaffold to evolve from mock state to SQLite-backed state without a full frontend rewrite.
+- For local dev the app will use sqlite, for production it will use postgresql supabase
 
 ## 3) UI implementation with mock APIs
 - Define the initial API contracts for settings, summary, categories, topics, and sessions.
