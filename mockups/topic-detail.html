@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Topic Detail</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-shell narrow">
+      <header class="topbar compact">
+        <div>
+          <p class="eyebrow">System Design</p>
+          <h1>Database partitioning</h1>
+        </div>
+        <a href="./index.html" class="ghost-btn link-btn">Back to dashboard</a>
+      </header>
+
+      <main class="card detail-card">
+        <div class="detail-row">
+          <div class="status-box">
+            <div class="status-stack">
+              <span class="topic-status inprogress">In progress</span>
+              <label class="checkbox-pill">
+                <input type="checkbox" />
+                <span>Mark complete</span>
+              </label>
+            </div>
+            <div class="big-kpi small">
+              <span class="kpi-number">6.5h</span>
+              <span class="kpi-label">total study</span>
+            </div>
+          </div>
+
+          <div class="detail-metrics">
+            <div class="mini-stat">
+              <span>Sessions</span>
+              <strong>4</strong>
+            </div>
+            <div class="mini-stat">
+              <span>Last covered</span>
+              <strong>Sep 23</strong>
+            </div>
+            <div class="mini-stat">
+              <span>Completed on</span>
+              <strong>—</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="notes-panel">
+          <h3>Notes</h3>
+          <p>
+            Need to review hot-spot sharding trade-offs and compare workload-based partitioning with tenant-based partitioning.
+          </p>
+        </div>
+
+        <div class="sessions-panel">
+          <h3>Session history</h3>
+          <ul class="list compact-list">
+            <li class="list-item">
+              <div class="session-meta">
+                <span class="session-name">Read: partitioning patterns</span>
+                <span class="session-sub">Tue · 1h</span>
+              </div>
+              <span class="session-time">1.0h</span>
+            </li>
+            <li class="list-item">
+              <div class="session-meta">
+                <span class="session-name">Review: hot shards</span>
+                <span class="session-sub">Thu · 1.5h</span>
+              </div>
+              <span class="session-time">1.5h</span>
+            </li>
+            <li class="list-item">
+              <div class="session-meta">
+                <span class="session-name">Practice: interview question</span>
+                <span class="session-sub">Sat · 45m</span>
+              </div>
+              <span class="session-time">45m</span>
+            </li>
+          </ul>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

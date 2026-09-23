@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Log Session</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-shell narrow">
+      <header class="topbar compact">
+        <div>
+          <p class="eyebrow">Growth Budget</p>
+          <h1>Log study session</h1>
+        </div>
+        <div class="topbar-actions">
+          <a href="./settings.html" class="ghost-btn link-btn">Settings</a>
+          <a href="./index.html" class="ghost-btn link-btn">Back to dashboard</a>
+        </div>
+      </header>
+
+      <main class="card form-card">
+        <div class="form-grid">
+          <label>
+            <span>Category</span>
+            <select>
+              <option>System Design</option>
+              <option>Algorithms</option>
+              <option>Reading</option>
+              <option>Revision</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Topic</span>
+            <select>
+              <option value="">No topic</option>
+              <option>Database partitioning</option>
+              <option>Caching</option>
+              <option>Load balancing</option>
+              <option>General study</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Session type</span>
+            <select>
+              <option>Learning</option>
+              <option>Revision</option>
+              <option>Practice</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Date</span>
+            <input type="date" value="2026-09-23" />
+          </label>
+
+          <label>
+            <span>Duration (slots)</span>
+            <input type="number" value="3" min="1" max="20" />
+          </label>
+
+          <label>
+            <span>Outcome</span>
+            <select>
+              <option>Clear progress</option>
+              <option>Review needed</option>
+              <option>Still learning</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="form-grid" style="margin-top: 18px;">
+          <label>
+            <span>Topic status</span>
+            <select>
+              <option>Unchanged</option>
+              <option>Mark complete</option>
+              <option>Keep in progress</option>
+            </select>
+          </label>
+          <div></div>
+        </div>
+
+        <label class="full-width">
+          <span>Notes</span>
+          <textarea rows="5">Went deeper into partitioning trade-offs and read through examples around sharding by tenant vs workload.</textarea>
+        </label>
+
+        <div class="form-actions">
+          <button class="ghost-btn">Cancel</button>
+          <button class="primary-btn">Save session</button>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

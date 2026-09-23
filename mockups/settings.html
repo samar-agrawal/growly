@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Settings</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-shell narrow">
+      <header class="topbar compact">
+        <div>
+          <p class="eyebrow">Growth Budget</p>
+          <h1>Settings</h1>
+        </div>
+        <div class="topbar-actions">
+          <a href="./index.html" class="ghost-btn link-btn">Back to dashboard</a>
+        </div>
+      </header>
+
+      <main class="card form-card settings-panel">
+        <div class="settings-card">
+          <div class="section-header compact-header">
+            <h3>Weekly settings</h3>
+          </div>
+          <div class="settings-grid">
+            <label>
+              <span>Weekly commitment</span>
+              <input type="number" value="7" min="1" max="40" />
+            </label>
+            <label>
+              <span>Optional buffer</span>
+              <input type="number" value="2" min="0" max="20" />
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <div class="section-header compact-header">
+            <h3>Add topic</h3>
+          </div>
+          <form id="topic-form" class="topic-form">
+            <label>
+              <span>Category</span>
+              <select>
+                <option>System Design</option>
+                <option>Algorithms</option>
+                <option>Reading</option>
+                <option>Revision</option>
+              </select>
+            </label>
+            <label>
+              <span>Topic name</span>
+              <input type="text" placeholder="e.g. Kubernetes networking" />
+            </label>
+            <button type="submit" class="primary-btn full-width-btn">Add topic</button>
+          </form>
+        </div>
+      </main>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

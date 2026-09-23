@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Growth Budget Mockups</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Growth Budget</p>
+          <h1>Weekly commitment</h1>
+        </div>
+        <div class="topbar-actions">
+          <button class="ghost-btn">This week</button>
+          <a href="./settings.html" class="ghost-btn link-btn">Settings</a>
+          <a href="./session-entry.html" class="primary-btn link-btn">Log session</a>
+        </div>
+      </header>
+
+      <main class="dashboard">
+        <section class="hero card">
+          <div class="hero-summary">
+            <div>
+              <p class="eyebrow muted">Example: Weekly commitment achieved</p>
+              <h2>7 / 7 hours</h2>
+            </div>
+            <div class="big-kpi">
+              <span class="kpi-number">7h</span>
+              <span class="kpi-label">completed</span>
+            </div>
+          </div>
+
+          <div class="progress-row">
+            <div class="commitment-progress" aria-label="Weekly commitment progress">
+              <div class="committed-fill" style="width: 70%"></div>
+              <div class="buffer-fill" style="left: 70%; width: 30%"></div>
+            </div>
+          </div>
+
+          <div class="progress-legend">
+            <div class="legend-left">
+              <span class="status-pill green">7h completed</span>
+              <span class="meta">Weekly commitment</span>
+            </div>
+            <div class="legend-right">
+              <span class="status-pill yellow">2h available</span>
+              <span class="meta">Optional buffer</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="content-grid">
+          <div class="left-column">
+            <section class="card curriculum-card">
+              <div class="section-header curriculum-header">
+                <div>
+                  <p class="eyebrow tiny">Current curriculum</p>
+                  <h3>System Design</h3>
+                </div>
+                <span class="curriculum-tag">40%</span>
+              </div>
+
+              <div class="mini-progress-bar">
+                <span class="mini-progress-fill" style="width: 40%"></span>
+              </div>
+
+              <div class="curriculum-copy">
+                <span class="curriculum-value">27%</span>
+                <span class="curriculum-side">4 topics completed · 15 in current curriculum</span>
+              </div>
+
+              <p class="note">5 new topics were added. Previously completed topics remain completed.</p>
+            </section>
+
+            <section class="card">
+              <div class="section-header">
+                <h3>Curriculum categories</h3>
+              </div>
+              <div id="category-list" class="category-grid"></div>
+            </section>
+
+            <section class="card reference-card">
+              <div class="section-header">
+                <h3>Reference screens</h3>
+              </div>
+              <div class="reference-grid">
+                <img src="docs/sc3.png" alt="Reference screen 3" />
+                <img src="docs/sc4.png" alt="Reference screen 4" />
+              </div>
+            </section>
+          </div>
+
+          <aside class="right-column">
+            <section class="card">
+              <div class="section-header">
+                <h3>Topic activity</h3>
+                <a href="./topic-detail.html" class="text-btn link-btn">Open</a>
+              </div>
+              <div id="topic-list" class="topic-stack"></div>
+            </section>
+          </aside>
+        </section>
+      </main>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
