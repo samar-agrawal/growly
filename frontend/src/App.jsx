@@ -4,8 +4,8 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 function App() {
   const [dashboard, setDashboard] = useState(null);
-  const [categories, setCategories] = useState([]);
-  const [topics, setTopics] = useState([]);
+  const [focus_areas, setFocusAreas] = useState([]);
+  const [subtopics, setSubtopics] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -13,25 +13,25 @@ function App() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [dashboardRes, categoriesRes, topicsRes, sessionsRes] = await Promise.all([
+        const [dashboardRes, focusAreasRes, subtopicsRes, sessionsRes] = await Promise.all([
           fetch(`${API_BASE_URL}/api/dashboard`),
-          fetch(`${API_BASE_URL}/api/categories`),
-          fetch(`${API_BASE_URL}/api/topics`),
+          fetch(`${API_BASE_URL}/api/focus_areas`),
+          fetch(`${API_BASE_URL}/api/subtopics`),
           fetch(`${API_BASE_URL}/api/sessions`),
         ]);
 
-        if (!dashboardRes.ok || !categoriesRes.ok || !topicsRes.ok || !sessionsRes.ok) {
+        if (!dashboardRes.ok || !focusAreasRes.ok || !subtopicsRes.ok || !sessionsRes.ok) {
           throw new Error('One or more API requests failed.');
         }
 
         const dashboardData = await dashboardRes.json();
-        const categoryData = await categoriesRes.json();
-        const topicData = await topicsRes.json();
+        const focusAreaData = await focusAreasRes.json();
+        const subtopicData = await subtopicsRes.json();
         const sessionData = await sessionsRes.json();
 
         setDashboard(dashboardData);
-        setCategories(categoryData);
-        setTopics(topicData);
+        setFocusAreas(focusAreaData);
+        setSubtopics(subtopicData);
         setSessions(sessionData);
       } catch (err) {
         setError(err.message);
@@ -80,13 +80,13 @@ function App() {
           <small>Optional flex time</small>
         </div>
         <div className="panel stat-card">
-          <span>Categories</span>
-          <strong>{dashboard.categories}</strong>
+          <span>Focus Areas</span>
+          <strong>{dashboard.focus_areas}</strong>
           <small>Active learning groups</small>
         </div>
         <div className="panel stat-card">
-          <span>Topics</span>
-          <strong>{dashboard.topics}</strong>
+          <span>Subtopics</span>
+          <strong>{dashboard.subtopics}</strong>
           <small>Tracked study items</small>
         </div>
       </section>
@@ -114,20 +114,20 @@ function App() {
       <section className="content-grid">
         <div className="panel">
           <div className="section-header">
-            <h3>Categories</h3>
-            <button className="ghost-button">+ Add category</button>
+            <h3>Focus Areas</h3>
+            <button className="ghost-button">+ Add focusArea</button>
           </div>
           <div className="stack-list">
-            {categories.map((category) => (
-              <article className="card" key={category.id}>
+            {focus_areas.map((focusArea) => (
+              <article className="card" key={focusArea.id_focus_area}>
                 <div className="card-topline">
-                  <h4>{category.name}</h4>
-                  <span className={`badge ${category.curriculumEnabled ? 'active' : 'passive'}`}>
-                    {category.curriculumEnabled ? 'Curriculum' : 'General'}
+                  <h4>{focusArea.name}</h4>
+                  <span className={`badge ${focusArea.curriculumEnabled ? 'active' : 'passive'}`}>
+                    {focusArea.curriculumEnabled ? 'Curriculum' : 'General'}
                   </span>
                 </div>
-                <p>{category.description}</p>
-                <small>{category.topicCount} topics</small>
+                <p>{focusArea.description}</p>
+                <small>{focusArea.subtopicCount} subtopics</small>
               </article>
             ))}
           </div>
@@ -140,10 +140,10 @@ function App() {
           </div>
           <div className="stack-list">
             {sessions.map((session) => (
-              <article className="activity-item" key={session.id}>
+              <article className="activity-item" key={session.id_session}>
                 <div>
-                  <strong>{session.topicName || 'Unstructured study'}</strong>
-                  <small>{session.sessionType}</small>
+                  <strong>{session.subtopicName || 'Unstructured study'}</strong>
+
                 </div>
                 <div className="activity-meta">
                   <span>{session.durationMinutes} min</span>
@@ -157,12 +157,12 @@ function App() {
 
       <section className="panel">
         <div className="section-header">
-          <h3>Topics</h3>
-          <button className="ghost-button">+ Add topic</button>
+          <h3>Subtopics</h3>
+          <button className="ghost-button">+ Add subtopic</button>
         </div>
         <div className="topic-grid">
-          {topics.map((topic) => (
-            <article className="topic-card" key={topic.id}>
+          {subtopics.map((topic) => (
+            <article className="topic-card" key={topic.id_subtopic}>
               <div className="topic-header">
                 <h4>{topic.name}</h4>
                 <span className={`status ${topic.status.toLowerCase().replace(/\s+/g, '-')}`}>

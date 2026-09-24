@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const { getWeek } = require('./week');
+const { migrateDatabase } = require('./migrate');
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
@@ -16,8 +17,8 @@ const db = new sqlite3.Database(dbPath);
 
 async function clearDatabaseTables() {
   await runSql('DELETE FROM sessions');
-  await runSql('DELETE FROM topics');
-  await runSql('DELETE FROM categories');
+  await runSql('DELETE FROM subtopics');
+  await runSql('DELETE FROM focus_areas');
   await runSql('DELETE FROM settings');
 }
 
@@ -89,41 +90,40 @@ function mutate(operation) {
 }
 
 let lastUpdate = 0;
-async function touch(categoryIds = [], topicIds = []) {
+async function touch(focusAreaIds = [], subtopicIds = []) {
   lastUpdate = Math.max(Date.now(), lastUpdate + 1);
   const timestamp = new Date(lastUpdate).toISOString();
-  for (const id of new Set(categoryIds.filter(Boolean))) await runSql('UPDATE categories SET updated_at = ? WHERE id = ?', [timestamp, id]);
-  for (const id of new Set(topicIds.filter(Boolean))) await runSql('UPDATE topics SET updated_at = ? WHERE id = ?', [timestamp, id]);
+  for (const id of new Set(focusAreaIds.filter(Boolean))) await runSql('UPDATE focus_areas SET updated_at = ? WHERE id_focus_area = ?', [timestamp, id]);
+  for (const id of new Set(subtopicIds.filter(Boolean))) await runSql('UPDATE subtopics SET updated_at = ? WHERE id_subtopic = ?', [timestamp, id]);
 }
 
 function normalizeSettings(row) {
-  if (!row) return { timezone: null, weeklyCommitmentMinutes: null, weeklyBufferMinutes: null, weekStartDay: null };
+  if (!row) return { weeklyCommitmentMinutes: null, weeklyBufferMinutes: null, weeklyRevisionMinutes: null, weekStartDay: null };
   return {
-    timezone: row.timezone,
     weeklyCommitmentMinutes: row.weekly_commitment_minutes,
     weeklyBufferMinutes: row.weekly_buffer_minutes,
-    revisionSlots: row.revision_slots,
+    weeklyRevisionMinutes: row.weekly_revision_minutes,
     weekStartDay: row.week_start_day,
     notificationPreferences: JSON.parse(row.notification_preferences),
   };
 }
 
-function normalizeCategory(row) {
+function normalizeFocusArea(row) {
   return {
-    id: row.id,
+    id_focus_area: row.id_focus_area,
     name: row.name,
     description: row.description,
     curriculumEnabled: Boolean(row.curriculum_enabled),
     archivedAt: row.archived_at,
-    topicCount: Number(row.topic_count || 0),
+    subtopicCount: Number(row.subtopic_count || 0),
     updatedAt: row.updated_at,
   };
 }
 
-function normalizeTopic(row) {
+function normalizeSubtopic(row) {
   return {
-    id: row.id,
-    categoryId: row.category_id,
+    id_subtopic: row.id_subtopic,
+    id_focus_area: row.id_focus_area,
     name: row.name,
     status: row.status,
     completedAt: row.completed_at,
@@ -134,63 +134,52 @@ function normalizeTopic(row) {
 
 function normalizeSession(row) {
   return {
-    id: row.id,
-    categoryId: row.category_id,
-    topicId: row.topic_id,
-    topicName: row.topic_name,
+    id_session: row.id_session,
+    id_focus_area: row.id_focus_area,
+    id_subtopic: row.id_subtopic,
+    subtopicName: row.subtopic_name,
     date: row.date,
     durationMinutes: Number(row.duration_minutes),
     slots: Number(row.duration_minutes) / 30,
-    sessionType: row.session_type,
     outcome: row.outcome,
     notes: row.notes,
   };
 }
 
 async function ensureDatabase() {
-  const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
-  await execSql(schema);
-
-  for (const table of ['categories', 'topics']) {
-    const columns = await allSql(`PRAGMA table_info(${table})`);
-    if (!columns.some(column => column.name === 'updated_at')) await runSql(`ALTER TABLE ${table} ADD COLUMN updated_at TEXT`);
-    await runSql(`UPDATE ${table} SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', created_at) WHERE updated_at IS NULL`);
-  }
-
+  await migrateDatabase({ execSql, runSql, allSql, dbPath });
   if (process.env.GROWLY_RESET_DB === 'true') await clearDatabaseTables();
 }
 
 async function fetchSettings() {
-  const row = await getSql('SELECT * FROM settings WHERE id = ?', ['primary']);
+  const row = await getSql('SELECT * FROM settings WHERE id_setting = ?', ['primary']);
   return normalizeSettings(row);
 }
 
 async function saveSettings(payload) {
   const current = await fetchSettings();
   payload = { ...current, ...payload };
-  for (const key of ['weeklyCommitmentMinutes', 'weeklyBufferMinutes']) {
+  payload.weeklyRevisionMinutes = payload.weeklyRevisionMinutes ?? 0;
+  for (const key of ['weeklyCommitmentMinutes', 'weeklyBufferMinutes', 'weeklyRevisionMinutes']) {
     if (payload[key] == null || payload[key] === '' || !Number.isInteger(Number(payload[key])) || Number(payload[key]) < 0) {
-      throw new Error('Enter non-negative weekly commitment and buffer hours.');
+      throw new Error('Enter non-negative commitment, buffer, and revision hours.');
     }
   }
-  if (Number(payload.weeklyCommitmentMinutes) + Number(payload.weeklyBufferMinutes) > 10080) throw new Error('Weekly commitment and buffer cannot exceed 168 hours.');
+  if (Number(payload.weeklyCommitmentMinutes) + Number(payload.weeklyBufferMinutes) + Number(payload.weeklyRevisionMinutes) > 10080) throw new Error('Commitment, buffer, and revision together cannot exceed 168 hours.');
   if (!['Monday', 'Sunday'].includes(payload.weekStartDay)) throw new Error('Choose Monday or Sunday as the week start.');
-  if (!payload.timezone || typeof payload.timezone !== 'string') throw new Error('Choose a timezone.');
-  try { new Intl.DateTimeFormat('en', { timeZone: payload.timezone }).format(); } catch { throw new Error('Enter a valid timezone, such as Europe/Berlin or UTC.'); }
   const nextSettings = {
     ...payload,
     weeklyCommitmentMinutes: Number(payload.weeklyCommitmentMinutes),
     weeklyBufferMinutes: Number(payload.weeklyBufferMinutes),
-    revisionSlots: payload.revisionSlots ?? 0,
+    weeklyRevisionMinutes: Number(payload.weeklyRevisionMinutes),
     notificationPreferences: payload.notificationPreferences ?? {},
   };
 
-  const existingSettings = await getSql('SELECT * FROM settings WHERE id = ?', ['primary']);
+  const existingSettings = await getSql('SELECT * FROM settings WHERE id_setting = ?', ['primary']);
   const values = [
-    nextSettings.timezone,
     nextSettings.weeklyCommitmentMinutes,
     nextSettings.weeklyBufferMinutes,
-    nextSettings.revisionSlots,
+    nextSettings.weeklyRevisionMinutes,
     nextSettings.weekStartDay,
     JSON.stringify(nextSettings.notificationPreferences),
     'primary',
@@ -199,42 +188,41 @@ async function saveSettings(payload) {
   if (existingSettings) {
     await runSql(
       `UPDATE settings
-       SET timezone = ?,
-           weekly_commitment_minutes = ?,
+       SET weekly_commitment_minutes = ?,
            weekly_buffer_minutes = ?,
-           revision_slots = ?,
+           weekly_revision_minutes = ?,
            week_start_day = ?,
            notification_preferences = ?
-       WHERE id = ?`,
+       WHERE id_setting = ?`,
       values,
     );
   } else {
     await runSql(
-      `INSERT INTO settings (id, timezone, weekly_commitment_minutes, weekly_buffer_minutes, revision_slots, week_start_day, notification_preferences)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      ['primary', ...values.slice(0, 6)],
+      `INSERT INTO settings (id_setting, weekly_commitment_minutes, weekly_buffer_minutes, weekly_revision_minutes, week_start_day, notification_preferences)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      ['primary', ...values.slice(0, 5)],
     );
   }
 
   return fetchSettings();
 }
 
-async function fetchCategories() {
+async function fetchFocusAreas() {
   const rows = await allSql(`
-    SELECT c.id, c.name, c.description, c.curriculum_enabled, c.archived_at, c.updated_at,
-      COUNT(t.id) AS topic_count
-    FROM categories c
-    LEFT JOIN topics t ON t.category_id = c.id
-    GROUP BY c.id, c.name, c.description, c.curriculum_enabled, c.archived_at, c.updated_at
+    SELECT c.id_focus_area, c.name, c.description, c.curriculum_enabled, c.archived_at, c.updated_at,
+      COUNT(t.id_subtopic) AS subtopic_count
+    FROM focus_areas c
+    LEFT JOIN subtopics t ON t.id_focus_area = c.id_focus_area
+    GROUP BY c.id_focus_area, c.name, c.description, c.curriculum_enabled, c.archived_at, c.updated_at
     ORDER BY c.updated_at DESC, c.rowid DESC
   `);
 
-  return rows.map(normalizeCategory);
+  return rows.map(normalizeFocusArea);
 }
 
-async function fetchTopics() {
-  const rows = await allSql('SELECT * FROM topics ORDER BY updated_at DESC, rowid DESC');
-  return rows.map(normalizeTopic);
+async function fetchSubtopics() {
+  const rows = await allSql('SELECT * FROM subtopics ORDER BY updated_at DESC, rowid DESC');
+  return rows.map(normalizeSubtopic);
 }
 
 async function fetchSessions() {
@@ -248,40 +236,42 @@ function requiredName(value, label) {
   return name;
 }
 
+const primaryKeys = { focus_areas: 'id_focus_area', subtopics: 'id_subtopic', sessions: 'id_session' };
+
 async function requireRecord(table, id) {
-  const row = await getSql(`SELECT * FROM ${table} WHERE id = ?`, [id]);
+  const row = await getSql(`SELECT * FROM ${table} WHERE ${primaryKeys[table]} = ?`, [id]);
   if (!row) throw Object.assign(new Error('This record no longer exists.'), { status: 404 });
   return row;
 }
 
-async function saveCategory(payload, id) {
-  if (id) await requireRecord('categories', id);
+async function saveFocusArea(payload, id) {
+  if (id) await requireRecord('focus_areas', id);
   const name = requiredName(payload.name, 'Focus Area');
   if (id) {
-    await runSql('UPDATE categories SET name = ?, description = ? WHERE id = ?', [name, payload.description || null, id]);
+    await runSql('UPDATE focus_areas SET name = ?, description = ? WHERE id_focus_area = ?', [name, payload.description || null, id]);
   } else {
     id = crypto.randomUUID();
-    await runSql('INSERT INTO categories (id, name, description, curriculum_enabled) VALUES (?, ?, ?, ?)', [id, name, payload.description || null, payload.curriculumEnabled ? 1 : 0]);
+    await runSql('INSERT INTO focus_areas (id_focus_area, name, description, curriculum_enabled) VALUES (?, ?, ?, ?)', [id, name, payload.description || null, payload.curriculumEnabled ? 1 : 0]);
   }
   await touch([id]);
-  return normalizeCategory(await requireRecord('categories', id));
+  return normalizeFocusArea(await requireRecord('focus_areas', id));
 }
 
-async function saveTopic(payload, id) {
-  const previous = id ? await requireRecord('topics', id) : null;
+async function saveSubtopic(payload, id) {
+  const previous = id ? await requireRecord('subtopics', id) : null;
   const name = requiredName(payload.name, 'Subtopic');
-  if (!payload.categoryId || !await getSql('SELECT id FROM categories WHERE id = ?', [payload.categoryId])) throw new Error('Choose an existing Focus Area.');
+  if (!payload.id_focus_area || !await getSql('SELECT id_focus_area FROM focus_areas WHERE id_focus_area = ?', [payload.id_focus_area])) throw new Error('Choose an existing Focus Area.');
   if (!['Not started', 'In Progress', 'Completed'].includes(payload.status)) throw new Error('Choose a subtopic status.');
   const completedAt = payload.status === 'Completed' ? previous?.completed_at || new Date().toISOString().slice(0, 10) : null;
-  const values = [payload.categoryId, name, payload.status, completedAt, payload.notes || null];
+  const values = [payload.id_focus_area, name, payload.status, completedAt, payload.notes || null];
   if (id) {
-    await runSql('UPDATE topics SET category_id = ?, name = ?, status = ?, completed_at = ?, notes = ? WHERE id = ?', [...values, id]);
+    await runSql('UPDATE subtopics SET id_focus_area = ?, name = ?, status = ?, completed_at = ?, notes = ? WHERE id_subtopic = ?', [...values, id]);
   } else {
     id = crypto.randomUUID();
-    await runSql('INSERT INTO topics (category_id, name, status, completed_at, notes, id) VALUES (?, ?, ?, ?, ?, ?)', [...values, id]);
+    await runSql('INSERT INTO subtopics (id_focus_area, name, status, completed_at, notes, id_subtopic) VALUES (?, ?, ?, ?, ?, ?)', [...values, id]);
   }
-  await touch([previous?.category_id, payload.categoryId], [id]);
-  return normalizeTopic(await requireRecord('topics', id));
+  await touch([previous?.id_focus_area, payload.id_focus_area], [id]);
+  return normalizeSubtopic(await requireRecord('subtopics', id));
 }
 
 async function saveSession(payload, id) {
@@ -292,27 +282,26 @@ async function saveSession(payload, id) {
   if ((!Number.isInteger(slots) && !unchangedLegacy) || slots <= 0 || !Number.isFinite(slots)) throw new Error('Enter a positive whole number of 30-minute slots.');
   const date = payload.date;
   if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date) throw new Error('Choose a valid session date.');
-  if (!['learning', 'revision'].includes(payload.sessionType)) throw new Error('Choose a session type.');
-  let categoryId = payload.categoryId || null;
+  let id_focus_area = payload.id_focus_area || null;
   const hasFreeText = payload.focusAreaName !== undefined;
   const focusAreaName = hasFreeText ? requiredName(payload.focusAreaName, 'Focus Area') : null;
-  if (hasFreeText && (categoryId || payload.topicId)) throw new Error('Choose an existing Focus Area or enter a new name, not both.');
-  const topicId = payload.topicId || null;
-  if (categoryId && !await getSql('SELECT id FROM categories WHERE id = ?', [categoryId])) throw new Error('Choose an existing Focus Area.');
-  const topic = topicId ? await getSql('SELECT * FROM topics WHERE id = ?', [topicId]) : null;
-  if (topicId && (!topic || topic.category_id !== categoryId)) throw new Error('Choose a subtopic belonging to the selected Focus Area.');
+  if (hasFreeText && (id_focus_area || payload.id_subtopic)) throw new Error('Choose an existing Focus Area or enter a new name, not both.');
+  const id_subtopic = payload.id_subtopic || null;
+  if (id_focus_area && !await getSql('SELECT id_focus_area FROM focus_areas WHERE id_focus_area = ?', [id_focus_area])) throw new Error('Choose an existing Focus Area.');
+  const topic = id_subtopic ? await getSql('SELECT * FROM subtopics WHERE id_subtopic = ?', [id_subtopic]) : null;
+  if (id_subtopic && (!topic || topic.id_focus_area !== id_focus_area)) throw new Error('Choose a subtopic belonging to the selected Focus Area.');
   if (hasFreeText) {
-    const existing = (await fetchCategories()).find(area => area.name.trim().toLocaleLowerCase() === focusAreaName.toLocaleLowerCase());
-    categoryId = existing?.id || (await saveCategory({ name: focusAreaName })).id;
+    const existing = (await fetchFocusAreas()).find(area => area.name.trim().toLocaleLowerCase() === focusAreaName.toLocaleLowerCase());
+    id_focus_area = existing?.id_focus_area || (await saveFocusArea({ name: focusAreaName })).id_focus_area;
   }
-  const values = [categoryId, topicId, topic?.name || null, date, slots * 30, payload.sessionType, payload.outcome || null, payload.notes || null];
+  const values = [id_focus_area, id_subtopic, topic?.name || null, date, slots * 30, payload.outcome || null, payload.notes || null];
   if (id) {
-    await runSql('UPDATE sessions SET category_id = ?, topic_id = ?, topic_name = ?, date = ?, duration_minutes = ?, session_type = ?, outcome = ?, notes = ? WHERE id = ?', [...values, id]);
+    await runSql('UPDATE sessions SET id_focus_area = ?, id_subtopic = ?, subtopic_name = ?, date = ?, duration_minutes = ?, outcome = ?, notes = ? WHERE id_session = ?', [...values, id]);
   } else {
     id = crypto.randomUUID();
-    await runSql('INSERT INTO sessions (category_id, topic_id, topic_name, date, duration_minutes, session_type, outcome, notes, id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [...values, id]);
+    await runSql('INSERT INTO sessions (id_focus_area, id_subtopic, subtopic_name, date, duration_minutes, outcome, notes, id_session) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [...values, id]);
   }
-  await touch([previous?.category_id, categoryId], [previous?.topic_id, topicId]);
+  await touch([previous?.id_focus_area, id_focus_area], [previous?.id_subtopic, id_subtopic]);
   return normalizeSession(await requireRecord('sessions', id));
 }
 
@@ -339,19 +328,22 @@ app.put('/api/settings', async (req, res) => {
 
 app.get('/api/dashboard', async (req, res) => {
   const settings = await fetchSettings();
-  const [categories, topics, sessions] = await Promise.all([
-    fetchCategories(),
-    fetchTopics(),
+  const [focus_areas, subtopics, sessions] = await Promise.all([
+    fetchFocusAreas(),
+    fetchSubtopics(),
     fetchSessions(),
   ]);
 
   const week = getWeek(settings);
   const weeklySessions = sessions.filter(session => session.date >= week.weekStart && session.date < week.weekEnd);
   const totalMinutes = weeklySessions.reduce((sum, session) => sum + Number(session.durationMinutes || 0), 0);
+  const revisionIds = new Set(focus_areas.filter(area => area.name.trim().toLowerCase() === 'revision').map(area => area.id_focus_area));
+  const revisionLoggedMinutes = weeklySessions.filter(session => revisionIds.has(session.id_focus_area)).reduce((sum, session) => sum + session.durationMinutes, 0);
+  const commitmentLoggedMinutes = totalMinutes - revisionLoggedMinutes;
   const commitmentMinutes = Number(settings.weeklyCommitmentMinutes || 0);
   const bufferMinutes = Number(settings.weeklyBufferMinutes || 0);
-  const commitmentProgress = commitmentMinutes > 0 ? Math.min((totalMinutes / commitmentMinutes) * 100, 100) : 0;
-  const overflowMinutes = Math.max(totalMinutes - commitmentMinutes, 0);
+  const commitmentProgress = commitmentMinutes > 0 ? Math.min((commitmentLoggedMinutes / commitmentMinutes) * 100, 100) : 0;
+  const overflowMinutes = Math.max(commitmentLoggedMinutes - commitmentMinutes, 0);
   const bufferProgress = bufferMinutes > 0 ? Math.min((overflowMinutes / bufferMinutes) * 100, 100) : 0;
 
   res.json({
@@ -359,17 +351,20 @@ app.get('/api/dashboard', async (req, res) => {
     weeklyCommitmentMinutes: commitmentMinutes,
     weeklyBufferMinutes: bufferMinutes,
     timeLoggedMinutes: totalMinutes,
+    commitmentLoggedMinutes,
+    revisionLoggedMinutes,
+    weeklyRevisionMinutes: Number(settings.weeklyRevisionMinutes || 0),
     commitmentProgress,
     bufferProgress,
-    categories: categories.length,
-    topics: topics.length,
+    focus_areas: focus_areas.length,
+    subtopics: subtopics.length,
     sessions: weeklySessions.length,
   });
 });
 
 for (const [resource, table, list, save] of [
-  ['categories', 'categories', fetchCategories, saveCategory],
-  ['topics', 'topics', fetchTopics, saveTopic],
+  ['focus_areas', 'focus_areas', fetchFocusAreas, saveFocusArea],
+  ['subtopics', 'subtopics', fetchSubtopics, saveSubtopic],
   ['sessions', 'sessions', fetchSessions, saveSession],
 ]) {
   app.get(`/api/${resource}`, async (req, res) => {
@@ -385,9 +380,9 @@ for (const [resource, table, list, save] of [
     try {
       await mutate(async () => {
         const record = await requireRecord(table, req.params.id);
-        await touch([record.category_id], [record.topic_id]);
+        await touch([record.id_focus_area], [record.id_subtopic]);
         // SQLite triggers unlink history and remove children atomically.
-        await runSql(`DELETE FROM ${table} WHERE id = ?`, [req.params.id]);
+        await runSql(`DELETE FROM ${table} WHERE ${primaryKeys[table]} = ?`, [req.params.id]);
       });
       res.json({ deleted: true });
     } catch (error) { res.status(error.status || 400).json({ error: error.message }); }

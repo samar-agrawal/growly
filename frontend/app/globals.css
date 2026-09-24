@@ -53,3 +53,8 @@
 .focus-mode legend { font-size: 12px; font-weight: 550; padding: 0 4px; }
 .focus-mode label { display: flex; gap: 6px; align-items: center; font-size: 12px; }
 .focus-mode input { accent-color: var(--green); }
+
+.revision-card { margin-top: 18px; padding: 22px 28px; background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+.revision-card .spread { flex-wrap: wrap; }
+.revision-total { margin: 16px 0 10px; font-weight: 600; }
+.revision-card > .text-button { margin-top: 14px; }

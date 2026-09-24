@@ -19,34 +19,34 @@ export async function requestJson(path, options = {}) {
 }
 
 export async function fetchDashboardData() {
-  const [settings, dashboard, categories, topics, sessions] = await Promise.all([
+  const [settings, dashboard, focus_areas, subtopics, sessions] = await Promise.all([
     requestJson('/api/settings'),
     requestJson('/api/dashboard'),
-    requestJson('/api/categories'),
-    requestJson('/api/topics'),
+    requestJson('/api/focus_areas'),
+    requestJson('/api/subtopics'),
     requestJson('/api/sessions'),
   ]);
 
-  return { settings, dashboard, categories, topics, sessions };
+  return { settings, dashboard, focus_areas, subtopics, sessions };
 }
 
 export async function saveSettings(settings) {
   return requestJson('/api/settings', { method: 'PUT', body: settings });
 }
 
-export async function createCategory(category) {
-  return requestJson('/api/categories', { method: 'POST', body: category });
+export async function createFocusArea(focusArea) {
+  return requestJson('/api/focus_areas', { method: 'POST', body: focusArea });
 }
 
-export async function createTopic(topic) {
-  return requestJson('/api/topics', { method: 'POST', body: topic });
+export async function createSubtopic(subtopic) {
+  return requestJson('/api/subtopics', { method: 'POST', body: subtopic });
 }
 
 export async function createSession(session) {
   return requestJson('/api/sessions', { method: 'POST', body: session });
 }
 
-const resources = { area: 'categories', subtopic: 'topics', session: 'sessions' };
+const resources = { area: 'focus_areas', subtopic: 'subtopics', session: 'sessions' };
 
 export function updateRecord(kind, id, body) {
   return requestJson(`/api/${resources[kind]}/${encodeURIComponent(id)}`, { method: 'PUT', body });

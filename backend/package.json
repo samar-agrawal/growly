@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "migrate": "node migrate.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

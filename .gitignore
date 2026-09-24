@@ -6,3 +6,5 @@ dist
 coverage
 npm-debug.log*
 .next
+# Automatic pre-migration database backups
+backend/data/*.bak
