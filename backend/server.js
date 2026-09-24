@@ -167,6 +167,12 @@ async function saveSettings(payload) {
   }
   if (Number(payload.weeklyCommitmentMinutes) + Number(payload.weeklyBufferMinutes) + Number(payload.weeklyRevisionMinutes) > 10080) throw new Error('Commitment, buffer, and revision together cannot exceed 168 hours.');
   if (!['Monday', 'Sunday'].includes(payload.weekStartDay)) throw new Error('Choose Monday or Sunday as the week start.');
+  const preferences = payload.notificationPreferences ?? {};
+  if (!preferences || typeof preferences !== 'object' || Array.isArray(preferences)) throw new Error('Notification preferences must be an object.');
+  for (const key of ['studyReminders', 'browserNotifications']) {
+    if (preferences[key] !== undefined && typeof preferences[key] !== 'boolean') throw new Error('Notification preferences must use true or false.');
+  }
+  if (preferences.studyReminders && (!Number.isInteger(preferences.reminderIntervalMinutes) || preferences.reminderIntervalMinutes < 15 || preferences.reminderIntervalMinutes > 1440)) throw new Error('Choose a reminder interval between 15 and 1440 minutes.');
   const nextSettings = {
     ...payload,
     weeklyCommitmentMinutes: Number(payload.weeklyCommitmentMinutes),
@@ -245,13 +251,15 @@ async function requireRecord(table, id) {
 }
 
 async function saveFocusArea(payload, id) {
-  if (id) await requireRecord('focus_areas', id);
+  const previous = id ? await requireRecord('focus_areas', id) : null;
+  if (payload.curriculumEnabled !== undefined && typeof payload.curriculumEnabled !== 'boolean') throw new Error('Curriculum tracking must be true or false.');
+  const curriculumEnabled = payload.curriculumEnabled ?? Boolean(previous?.curriculum_enabled);
   const name = requiredName(payload.name, 'Focus Area');
   if (id) {
-    await runSql('UPDATE focus_areas SET name = ?, description = ? WHERE id_focus_area = ?', [name, payload.description || null, id]);
+    await runSql('UPDATE focus_areas SET name = ?, description = ?, curriculum_enabled = ? WHERE id_focus_area = ?', [name, payload.description || null, curriculumEnabled ? 1 : 0, id]);
   } else {
     id = crypto.randomUUID();
-    await runSql('INSERT INTO focus_areas (id_focus_area, name, description, curriculum_enabled) VALUES (?, ?, ?, ?)', [id, name, payload.description || null, payload.curriculumEnabled ? 1 : 0]);
+    await runSql('INSERT INTO focus_areas (id_focus_area, name, description, curriculum_enabled) VALUES (?, ?, ?, ?)', [id, name, payload.description || null, curriculumEnabled ? 1 : 0]);
   }
   await touch([id]);
   return normalizeFocusArea(await requireRecord('focus_areas', id));
@@ -275,6 +283,13 @@ async function saveSubtopic(payload, id) {
 }
 
 async function saveSession(payload, id) {
+  let timerSessionId;
+  if (!id && payload.timerId !== undefined) {
+    if (typeof payload.timerId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(payload.timerId)) throw new Error('Invalid timer reference.');
+    timerSessionId = `timer-${payload.timerId}`;
+    const saved = await getSql('SELECT * FROM sessions WHERE id_session = ?', [timerSessionId]);
+    if (saved) return normalizeSession(saved);
+  }
   const previous = id ? await requireRecord('sessions', id) : null;
   const slots = Number(payload.slots);
   // Keep legacy durations exactly when only the other session fields are edited.
@@ -298,7 +313,7 @@ async function saveSession(payload, id) {
   if (id) {
     await runSql('UPDATE sessions SET id_focus_area = ?, id_subtopic = ?, subtopic_name = ?, date = ?, duration_minutes = ?, outcome = ?, notes = ? WHERE id_session = ?', [...values, id]);
   } else {
-    id = crypto.randomUUID();
+    id = timerSessionId || crypto.randomUUID();
     await runSql('INSERT INTO sessions (id_focus_area, id_subtopic, subtopic_name, date, duration_minutes, outcome, notes, id_session) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [...values, id]);
   }
   await touch([previous?.id_focus_area, id_focus_area], [previous?.id_subtopic, id_subtopic]);

@@ -1,6 +1,12 @@
 ## Goal
 Build a lightweight learning tracker centered on a weekly commitment model: X hours committed, X hours optional buffer, Sunday–Saturday tracking, and flexible learning that can include both unstructured sessions and optional curriculum tracking.
 
+## Current decisions that supersede early wording
+- User-created data only: no seeded learning records or automatic saved settings.
+- Current names are Focus Areas and subtopics; explicit `id_*` identifiers are used without foreign-key constraints.
+- Weeks use UTC with a Monday/Sunday setting. Revision has separate optional hours but remains included in overall weekly totals.
+- Phase 2 and Phase 4 below refer to the labeled product phases (sections 6 and 8), not scaffold/data-model sections 2 and 4.
+
 ## Clarified assumptions
 - Single-repo app with a frontend and a backend API, using Docker for local development.
 - Default MVP scope focuses on weekly commitment and buffer tracking first; other PRD features ship later as independent phases.
@@ -36,7 +42,7 @@ Build a lightweight learning tracker centered on a weekly commitment model: X ho
 - Keep category and topic records normalized so sessions can link back to the correct area without duplication.
 - Derive topic totals, recency, and curriculum completion from session history instead of storing stale copies.
 - Reserve space for revision, notification, and future analytics fields without overcomplicating the first schema.
-- Status: implemented in the backend as a local SQLite database with seeded sample data and API routes backed by persistent tables.
+- Status: implemented in the backend as a local SQLite database with user-created data and API routes backed by persistent tables.
 
 ## 5) Phase 1 — Weekly commitment + optional buffer
 - Build the primary dashboard and weekly summary for the required learning budget.
@@ -46,12 +52,14 @@ Build a lightweight learning tracker centered on a weekly commitment model: X ho
 - Include a week rollover and summary states for partial completion, overage, and under-target weeks.
 - This is the first deployable feature slice and should be validated before moving to the next phase.
 
-## 6) Phase 2 — Category and curriculum tracking
-- Add category creation, editing, and optional curriculum toggle support.
-- Allow each topic to track status, session count, total hours, notes, and completion metadata.
-- Support topic states of Not started, In progress, and Completed.
-- Keep curriculum progress based on completed topics versus total topics.
-- Display the percentage alongside an accomplishment count so new topics do not demotivate users when the denominator changes.
+## 6) Phase 2 — Focus Area and curriculum tracking
+- Status: implemented. Focus Areas replace the earlier category terminology; their children are subtopics.
+- Create and edit Focus Areas with an optional curriculum tracking checkbox; the choice is persisted.
+- Subtopics expose status, all-time session count/hours, notes, and completion date.
+- Supported states: Not started, In Progress, and Completed. Completing a subtopic sets its completion date; reopening it clears the date.
+- Opted-in Focus Area cards show completed/total counts alongside the percentage, based on all children (including those hidden by overview limits).
+- Adding a subtopic changes the denominator without resetting prior completions. Turning curriculum tracking off does not erase accomplishments.
+- The previously removed global Current curriculum block stays removed; curriculum reporting is per Focus Area.
 
 ## 7) Phase 3 — Topic recency and activity overview
 - Show when each topic was last covered based on all relevant session activity.
@@ -60,11 +68,14 @@ Build a lightweight learning tracker centered on a weekly commitment model: X ho
 - Keep the UI scannable and simple enough for regular use without deep analysis.
 
 ## 8) Phase 4 — Revision handling and timer workflow
-- Add an optional timer flow for focused study or revision blocks.
-- Ensure revision sessions are counted toward the same weekly budget rather than as hidden extra time.
-- Support explicit confirmations before finalizing a timed session.
-- Add a notification layer for reminders and study nudges, gated by user permission.
-- Keep manual session entry available alongside timer-based logging.
+- Status: implemented with the current revision-budget and UTC decisions below.
+- Session logging offers manual Save session and optional Start timer actions, using 30-minute slots for learning or Revision. Timers support 1–48 slots, pause/resume, and explicit discard confirmation.
+- Timer deadlines use wall time to tolerate delayed background ticks. Timer drafts survive reload within the same tab using sessionStorage; they are not saved sessions.
+- Completion does not write to the API. Review and confirm the completed block to finalize it; cancel keeps the completed block available. Repeated saves of the same timer reference return the already saved session.
+- Revision is a Focus Area with its own optional weekly hours allowance, as subsequently requested. It is included in the same overall weekly time total and chart, while core commitment/buffer progress excludes it. No session_type or revision_slots fields are restored.
+- Opt-in reminders have a user-chosen interval (15–1440 minutes) and pause while a timer exists. In-app notices work without browser permission. Browser notification permission is requested only by clicking Allow browser notifications; saved preferences control subsequent alerts.
+- Reminders require the page to remain open; this phase does not implement service-worker push or closed-browser scheduling. A running timer can recover after reload, but closing the tab ends that tab's timer draft.
+- Validation: backend regression tests, frontend timer unit tests, and the production build. Interactive browser verification remains outstanding because the browser download was declined.
 
 ## 9) Phase 5 — Product polish and operational readiness
 - Add editing and deletion flows for categories, topics, and sessions.

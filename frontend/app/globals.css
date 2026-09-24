@@ -58,3 +58,16 @@
 .revision-card .spread { flex-wrap: wrap; }
 .revision-total { margin: 16px 0 10px; font-weight: 600; }
 .revision-card > .text-button { margin-top: 14px; }
+
+.study-timer { padding: 24px; margin-bottom: 24px; background: #edf4ed; border: 1px solid #cbdcc9; border-radius: 14px; }
+.study-timer h2 { overflow-wrap: anywhere; }
+.study-timer > p { margin-top: 14px; }
+.timer-clock { font-size: clamp(28px, 5vw, 42px); font-variant-numeric: tabular-nums; font-weight: 650; }
+.timer-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+.timer-confirmation { padding: 14px; background: var(--soft); border-radius: 8px; font-size: 12px; }
+.notification-settings { border: 1px solid var(--line); border-radius: 10px; margin-top: 26px; padding: 20px; display: grid; gap: 16px; }
+.notification-settings legend { padding: 0 6px; font-weight: 600; }
+.notification-settings .field { max-width: 280px; }
+.notification-settings .secondary { justify-self: start; }
+.area-progress p { margin-top: 8px; font-size: 10px; }
+@media (max-width: 760px) { .study-timer .spread { flex-wrap: wrap; } .modal-footer { flex-wrap: wrap; } }

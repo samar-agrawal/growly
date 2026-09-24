@@ -5,10 +5,14 @@ Growly is a local weekly learning tracker. Organize learning into Focus Areas an
 ## Current features
 
 - **Overview:** weekly commitment and buffer, optional revision progress, week start date/day, and days remaining including today. Shows the five most recently updated Focus Areas and up to five recent subtopics per area, plus six recent sessions.
-- **Focus Areas:** view the full lists; create, edit, and delete areas and subtopics. Subtopics support `Not started`, `In Progress`, and `Completed` statuses.
+- **Focus Areas:** view the full lists; create, edit, and delete areas and subtopics. Subtopics support `Not started`, `In Progress`, and `Completed` statuses, session totals, notes, and completion dates. Enable curriculum tracking per Focus Area to see its completed count and percentage.
 - **Sessions:** log, view, edit, and delete sessions across all dates, with optional outcomes and notes. Select an existing Focus Area, leave the session unassigned, or enter a new name. Matching names are reused; a new area is created only when the session is saved.
 - **Weekly chart:** compare hours per Focus Area and navigate between weeks. Revision and unassigned time are included.
 - **Settings:** weekly commitment, optional buffer, optional revision hours, and Monday/Sunday week start. Hours accept quarter-hour increments; sessions use whole 30-minute slots.
+
+Optional timers support pause/resume and reload recovery within the same tab. Timer completion requires review and explicit confirmation before anything is logged; repeated saves of a timed block are deduplicated. Manual entry remains available.
+
+Opt into reminders in Settings and choose an interval. Browser alerts require an explicit permission grant and saved preference. Reminders run only while the page is open and pause during a focus block; no closed-browser push scheduling is implemented.
 
 All deletions require confirmation in the UI. Deleting a Focus Area removes its subtopics but keeps past sessions as unassigned history. Deleting a subtopic keeps its sessions under the parent area. Deleting a session removes its logged time from totals.
 
@@ -18,7 +22,7 @@ Weekly boundaries use **UTC** and the selected week start. Until settings are sa
 
 Non-revision sessions count toward the core commitment first, then the optional buffer. Sessions linked to an area named **Revision** (trimmed, case-insensitive) count toward a separate optional revision budget. They remain included in the chart and all-session totals. “Log revision” selects that area or offers to create it when saving the session; it is not pre-seeded. Combined commitment, buffer, and revision budgets cannot exceed 168 hours.
 
-There is no timezone setting, session type, revision-slot setting, or curriculum summary in the current UI.
+There is no timezone setting, session type, revision-slot setting, or global curriculum summary in the current UI. Curriculum progress is shown only within opted-in Focus Areas.
 
 ## Run locally
 
@@ -97,10 +101,11 @@ Identifiers are `id_focus_area`, `id_subtopic`, and `id_session` in both stored 
 
 ```bash
 npm test --prefix backend
+npm test --prefix frontend
 npm run build --prefix frontend
 ```
 
-Backend tests cover migration preservation and backups, persistence and CRUD, inline Focus Area creation, recency, revision accounting, and UTC week boundaries. The frontend has a production-build check but no configured browser-test suite.
+Backend tests cover migration preservation and backups, persistence and CRUD, inline Focus Area creation, recency, revision accounting, and UTC week boundaries. Frontend unit tests cover timer timing, pause/resume, reload recovery, and invalid drafts. The production build checks compilation; there is no configured browser-test suite.
 
 | Location | Role |
 | --- | --- |

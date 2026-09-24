@@ -178,5 +178,40 @@ test('weekly settings, Focus Areas, and subtopics persist across restarts', asyn
       const response = await fetch(`${base}/api/settings`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ weeklyRevisionMinutes: value }) });
       assert.equal(response.status, 400);
     }
+
+    // Phase 2: opt-in curricula can be edited without changing accomplishments.
+    const curriculumArea = await request('focus_areas', { name: 'Curriculum', curriculumEnabled: true });
+    assert.equal(curriculumArea.curriculumEnabled, true);
+    const completedChild = await request('subtopics', { name: 'Finished work', id_focus_area: curriculumArea.id_focus_area, status: 'Completed' });
+    const completionDate = completedChild.completedAt;
+    await request('subtopics', { name: 'Next step', id_focus_area: curriculumArea.id_focus_area, status: 'Not started' });
+    await request(`subtopics/${completedChild.id_subtopic}`, { ...completedChild, notes: 'More notes' }, 'PUT');
+    assert.equal((await request('subtopics')).find(item => item.id_subtopic === completedChild.id_subtopic).completedAt, completionDate);
+    await request(`focus_areas/${curriculumArea.id_focus_area}`, { name: 'Curriculum', curriculumEnabled: false }, 'PUT');
+    assert.equal((await request('focus_areas')).find(item => item.id_focus_area === curriculumArea.id_focus_area).curriculumEnabled, false);
+    await request(`focus_areas/${curriculumArea.id_focus_area}`, { name: 'Curriculum', curriculumEnabled: true }, 'PUT');
+    const savedPreferences = { studyReminders: true, browserNotifications: false, reminderIntervalMinutes: 45 };
+    await request('settings', { notificationPreferences: savedPreferences }, 'PUT');
+    await stop();
+    await start();
+    assert.deepEqual((await request('settings')).notificationPreferences, savedPreferences);
+    assert.equal((await request('focus_areas')).find(item => item.id_focus_area === curriculumArea.id_focus_area).curriculumEnabled, true);
+    assert.equal((await request('subtopics')).find(item => item.id_subtopic === completedChild.id_subtopic).completedAt, completionDate);
+    for (const notificationPreferences of [[], 'yes', { studyReminders: 'true' }, { studyReminders: true, reminderIntervalMinutes: 0 }, { studyReminders: true, reminderIntervalMinutes: 1441 }]) {
+      const response = await fetch(`${base}/api/settings`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notificationPreferences }) });
+      assert.equal(response.status, 400);
+    }
+    // Phase 4: retries of a confirmed timed session count only once, including Revision.
+    const timerId = '81d34e20-4525-4d80-80aa-755950b2c378';
+    const beforeTimed = await request('dashboard');
+    const timedPayload = { ...sessionPayload, focusAreaName: 'Revision', timerId };
+    const timed = await Promise.all([request('sessions', timedPayload), request('sessions', timedPayload)]);
+    assert.equal(timed[0].id_session, timed[1].id_session);
+    assert.equal((await request('dashboard')).revisionLoggedMinutes, beforeTimed.revisionLoggedMinutes + 30);
+    assert.equal((await request('dashboard')).timeLoggedMinutes, beforeTimed.timeLoggedMinutes + 30);
+    await stop();
+    await start();
+    assert.equal((await request('sessions', timedPayload)).id_session, timed[0].id_session);
+    assert.equal((await request('dashboard')).timeLoggedMinutes, beforeTimed.timeLoggedMinutes + 30);
   } finally { await stop(); await rm(directory, { recursive: true, force: true }); }
 });
