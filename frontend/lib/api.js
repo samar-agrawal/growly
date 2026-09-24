@@ -45,3 +45,13 @@ export async function createTopic(topic) {
 export async function createSession(session) {
   return requestJson('/api/sessions', { method: 'POST', body: session });
 }
+
+const resources = { area: 'categories', subtopic: 'topics', session: 'sessions' };
+
+export function updateRecord(kind, id, body) {
+  return requestJson(`/api/${resources[kind]}/${encodeURIComponent(id)}`, { method: 'PUT', body });
+}
+
+export function deleteRecord(kind, id) {
+  return requestJson(`/api/${resources[kind]}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}

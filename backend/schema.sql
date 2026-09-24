@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS categories (
   description TEXT,
   curriculum_enabled INTEGER NOT NULL DEFAULT 0,
   archived_at TEXT,
+  updated_at TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -23,6 +24,7 @@ CREATE TABLE IF NOT EXISTS topics (
   name TEXT NOT NULL,
   status TEXT NOT NULL,
   completed_at TEXT,
+  updated_at TEXT,
   notes TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (category_id) REFERENCES categories(id)
@@ -42,3 +44,24 @@ CREATE TABLE IF NOT EXISTS sessions (
   FOREIGN KEY (category_id) REFERENCES categories(id),
   FOREIGN KEY (topic_id) REFERENCES topics(id)
 );
+
+-- Keep session history when organizing or removing learning items.
+CREATE TRIGGER IF NOT EXISTS category_delete_history
+BEFORE DELETE ON categories
+BEGIN
+  UPDATE sessions SET category_id = NULL, topic_id = NULL, topic_name = NULL
+    WHERE category_id = OLD.id OR topic_id IN (SELECT id FROM topics WHERE category_id = OLD.id);
+  DELETE FROM topics WHERE category_id = OLD.id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS topic_delete_history
+BEFORE DELETE ON topics
+BEGIN
+  UPDATE sessions SET topic_id = NULL, topic_name = NULL WHERE topic_id = OLD.id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS topic_update_history
+AFTER UPDATE OF name, category_id ON topics
+BEGIN
+  UPDATE sessions SET topic_name = NEW.name, category_id = NEW.category_id WHERE topic_id = NEW.id;
+END;
