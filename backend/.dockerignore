@@ -1,4 +1,13 @@
 node_modules
-npm-debug.log
+.next
+.git
 .env
-.DS_Store
+.env.*
+data
+*.bak
+coverage
+test-results
+playwright-report
+npm-debug.log*
+
+dist

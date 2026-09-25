@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+**/.next
+**/data
+package-lock.json
+**/package-lock.json
+frontend/src
+frontend/index.html
+frontend/vite.config.js
+frontend/tailwind.config.js
+mockups
+docs
+playwright-report
+test-results

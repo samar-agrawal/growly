@@ -1,0 +1,22 @@
+{
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.63.0",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react": "^7.37.5",
+    "globals": "^17.12.0",
+    "prettier": "^3.9.9"
+  },
+  "name": "growly",
+  "private": true,
+  "scripts": {
+    "lint": "eslint .",
+    "format": "prettier --write frontend/app frontend/components frontend/lib frontend/test backend scripts e2e *.mjs *.json *.yml README.md plan.md",
+    "format:check": "prettier --check frontend/app frontend/components frontend/lib frontend/test backend scripts e2e *.mjs *.json *.yml README.md plan.md",
+    "test": "npm test --prefix backend && npm test --prefix frontend",
+    "test:e2e": "playwright test",
+    "build": "npm run build --prefix frontend",
+    "check": "npm run lint && npm test && npm run build",
+    "smoke": "node scripts/smoke.mjs"
+  }
+}

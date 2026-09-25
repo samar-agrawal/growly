@@ -1,3 +1,4 @@
+-- PostgreSQL/Supabase schema. No seeded records or foreign-key constraints.
 CREATE TABLE IF NOT EXISTS settings (
   id_setting TEXT PRIMARY KEY,
   weekly_commitment_minutes INTEGER NOT NULL,
@@ -12,9 +13,8 @@ CREATE TABLE IF NOT EXISTS focus_areas (
   name TEXT NOT NULL,
   description TEXT,
   curriculum_enabled INTEGER NOT NULL DEFAULT 0,
-  archived_at TEXT,
   updated_at TEXT,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TEXT NOT NULL DEFAULT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
 );
 
 CREATE TABLE IF NOT EXISTS subtopics (
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS subtopics (
   completed_at TEXT,
   updated_at TEXT,
   notes TEXT,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TEXT NOT NULL DEFAULT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -37,30 +37,12 @@ CREATE TABLE IF NOT EXISTS sessions (
   duration_minutes INTEGER NOT NULL,
   outcome TEXT,
   notes TEXT,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TEXT NOT NULL DEFAULT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
 );
 
 CREATE INDEX IF NOT EXISTS subtopics_focus_area ON subtopics(id_focus_area);
 CREATE INDEX IF NOT EXISTS sessions_focus_area ON sessions(id_focus_area);
 CREATE INDEX IF NOT EXISTS sessions_subtopic ON sessions(id_subtopic);
 
--- Preserve session history when organizing or removing learning items.
-CREATE TRIGGER IF NOT EXISTS focus_area_delete_history
-BEFORE DELETE ON focus_areas
-BEGIN
-  UPDATE sessions SET id_focus_area = NULL, id_subtopic = NULL, subtopic_name = NULL
-    WHERE id_focus_area = OLD.id_focus_area OR id_subtopic IN (SELECT id_subtopic FROM subtopics WHERE id_focus_area = OLD.id_focus_area);
-  DELETE FROM subtopics WHERE id_focus_area = OLD.id_focus_area;
-END;
 
-CREATE TRIGGER IF NOT EXISTS subtopic_delete_history
-BEFORE DELETE ON subtopics
-BEGIN
-  UPDATE sessions SET id_subtopic = NULL, subtopic_name = NULL WHERE id_subtopic = OLD.id_subtopic;
-END;
-
-CREATE TRIGGER IF NOT EXISTS subtopic_update_history
-AFTER UPDATE OF name, id_focus_area ON subtopics
-BEGIN
-  UPDATE sessions SET subtopic_name = NEW.name, id_focus_area = NEW.id_focus_area WHERE id_subtopic = NEW.id_subtopic;
-END;
+ALTER TABLE focus_areas DROP COLUMN IF EXISTS archived_at;

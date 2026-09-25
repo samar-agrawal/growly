@@ -1,0 +1,22 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      target: production
+    restart: unless-stopped
+    environment:
+      PORT: 4000
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL to a PostgreSQL connection string}
+  frontend:
+    build:
+      context: ./frontend
+      target: production
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${FRONTEND_PORT:-3000}:3000'
+    environment:
+      INTERNAL_API_URL: http://backend:4000
+    depends_on:
+      backend:
+        condition: service_healthy

@@ -5,9 +5,17 @@ export function remainingMilliseconds(timer, now = Date.now()) {
 
 export function createTimer(payload, label, id, now = Date.now()) {
   const slots = Number(payload.slots);
-  if (!Number.isInteger(slots) || slots < 1 || slots > 48) throw new Error('Choose 1–48 slots for a timer (up to 24 hours).');
+  if (!Number.isInteger(slots) || slots < 1 || slots > 48)
+    throw new Error('Choose 1–48 slots for a timer (up to 24 hours).');
   const remainingMs = slots * 30 * 60 * 1000;
-  return { id, payload: { ...payload, slots, timerId: id }, label, status: 'running', remainingMs, endsAt: now + remainingMs };
+  return {
+    id,
+    payload: { ...payload, slots, timerId: id },
+    label,
+    status: 'running',
+    remainingMs,
+    endsAt: now + remainingMs,
+  };
 }
 
 export function pauseTimer(timer, now = Date.now()) {
@@ -22,9 +30,41 @@ export function resumeTimer(timer, now = Date.now()) {
 export function restoreTimer(raw, now = Date.now()) {
   try {
     const timer = JSON.parse(raw);
-    if (!timer || !/^[0-9a-f-]{36}$/i.test(timer.id) || !timer.payload || timer.payload.timerId !== timer.id || !Number.isInteger(timer.payload.slots) || timer.payload.slots < 1 || timer.payload.slots > 48 || typeof timer.label !== 'string') return null;
-    if (!['running', 'paused', 'complete'].includes(timer.status) || !Number.isFinite(timer.remainingMs) || timer.remainingMs < 0) return null;
+    if (
+      !timer ||
+      !/^[0-9a-f-]{36}$/i.test(timer.id) ||
+      !timer.payload ||
+      timer.payload.timerId !== timer.id ||
+      !Number.isInteger(timer.payload.slots) ||
+      timer.payload.slots < 1 ||
+      timer.payload.slots > 48 ||
+      typeof timer.label !== 'string'
+    )
+      return null;
+    if (
+      !['running', 'paused', 'complete'].includes(timer.status) ||
+      !Number.isFinite(timer.remainingMs) ||
+      timer.remainingMs < 0
+    )
+      return null;
     if (timer.status === 'running' && !Number.isFinite(timer.endsAt)) return null;
-    return remainingMilliseconds(timer, now) === 0 ? { ...timer, status: 'complete', remainingMs: 0 } : timer;
-  } catch { return null; }
+    return remainingMilliseconds(timer, now) === 0
+      ? { ...timer, status: 'complete', remainingMs: 0 }
+      : timer;
+  } catch {
+    return null;
+  }
+}
+
+export function extendTimer(timer, now = Date.now()) {
+  if (timer.status !== 'complete' || timer.payload.slots >= 48)
+    throw new Error('Only a completed block below 48 slots can be extended.');
+  const remainingMs = 30 * 60 * 1000;
+  return {
+    ...timer,
+    payload: { ...timer.payload, slots: timer.payload.slots + 1 },
+    remainingMs,
+    status: 'running',
+    endsAt: now + remainingMs,
+  };
 }

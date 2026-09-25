@@ -4,7 +4,7 @@ function getWeek(settings, now = new Date()) {
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const start = new Date(today);
   const startDay = weekStartDay === 'Sunday' ? 0 : 1;
-  start.setUTCDate(start.getUTCDate() - (start.getUTCDay() - startDay + 7) % 7);
+  start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() - startDay + 7) % 7));
   const end = new Date(start);
   end.setUTCDate(end.getUTCDate() + 7);
   return {

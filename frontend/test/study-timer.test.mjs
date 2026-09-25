@@ -1,6 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createTimer, remainingMilliseconds, pauseTimer, resumeTimer, restoreTimer } from '../lib/study-timer.mjs';
+import {
+  createTimer,
+  remainingMilliseconds,
+  pauseTimer,
+  resumeTimer,
+  restoreTimer,
+} from '../lib/study-timer.mjs';
 
 const id = '81d34e20-4525-4d80-80aa-755950b2c378';
 const payload = { slots: 1, date: '2026-09-24', focusAreaName: 'Revision' };
@@ -34,6 +40,23 @@ test('reload restores a paused block or an expired block awaiting confirmation',
 });
 
 test('invalid timer drafts and corrupted persisted state are rejected', () => {
-  for (const slots of [0, -1, 1.5, 49, 'invalid']) assert.throws(() => createTimer({ ...payload, slots }, 'Revision', id));
-  for (const raw of ['bad json', 'null', '{}', JSON.stringify({ id, status: 'running', endsAt: null })]) assert.equal(restoreTimer(raw), null);
+  for (const slots of [0, -1, 1.5, 49, 'invalid'])
+    assert.throws(() => createTimer({ ...payload, slots }, 'Revision', id));
+  for (const raw of [
+    'bad json',
+    'null',
+    '{}',
+    JSON.stringify({ id, status: 'running', endsAt: null }),
+  ])
+    assert.equal(restoreTimer(raw), null);
+});
+
+test('continuing a completed block adds one slot without changing its save reference', async () => {
+  const { extendTimer } = await import('../lib/study-timer.mjs');
+  const timer = restoreTimer(JSON.stringify(createTimer(payload, 'Revision', id, 0)), 2000000);
+  const continued = extendTimer(timer, 3000000);
+  assert.equal(continued.payload.slots, 2);
+  assert.equal(continued.payload.timerId, id);
+  assert.equal(remainingMilliseconds(continued, 3000000), 1800000);
+  assert.throws(() => extendTimer(continued));
 });

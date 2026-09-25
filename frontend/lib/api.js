@@ -1,15 +1,19 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
 export async function requestJson(path, options = {}) {
   const { method = 'GET', body } = options;
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(path, {
     method,
+    signal: AbortSignal.timeout(20000),
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   });
 
   const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
+  let data;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    throw new Error('The server returned an unexpected response. Please try again.');
+  }
 
   if (!response.ok) {
     throw new Error(data?.error || `Request failed for ${path}: ${response.status}`);
