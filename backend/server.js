@@ -8,7 +8,9 @@ const port = Number(process.env.PORT || 4000);
 const database = createDatabase();
 const { runSql, getSql, allSql } = database;
 
-const mutate = database.transaction;
+function badRequest(message) {
+  return Object.assign(new Error(message), { status: 400 });
+}
 
 let lastUpdate = 0;
 async function touch(focusAreaIds = [], subtopicIds = []) {
@@ -97,7 +99,7 @@ async function saveSettings(payload) {
       !Number.isInteger(Number(payload[key])) ||
       Number(payload[key]) < 0
     ) {
-      throw new Error('Enter non-negative commitment, buffer, and revision hours.');
+      throw badRequest('Enter non-negative commitment, buffer, and revision hours.');
     }
   }
   if (
@@ -106,15 +108,15 @@ async function saveSettings(payload) {
       Number(payload.weeklyRevisionMinutes) >
     10080
   )
-    throw new Error('Commitment, buffer, and revision together cannot exceed 168 hours.');
+    throw badRequest('Commitment, buffer, and revision together cannot exceed 168 hours.');
   if (!['Monday', 'Sunday'].includes(payload.weekStartDay))
-    throw new Error('Choose Monday or Sunday as the week start.');
+    throw badRequest('Choose Monday or Sunday as the week start.');
   const preferences = payload.notificationPreferences ?? {};
   if (!preferences || typeof preferences !== 'object' || Array.isArray(preferences))
-    throw new Error('Notification preferences must be an object.');
+    throw badRequest('Notification preferences must be an object.');
   for (const key of ['studyReminders', 'browserNotifications']) {
     if (preferences[key] !== undefined && typeof preferences[key] !== 'boolean')
-      throw new Error('Notification preferences must use true or false.');
+      throw badRequest('Notification preferences must use true or false.');
   }
   if (
     preferences.studyReminders &&
@@ -122,7 +124,7 @@ async function saveSettings(payload) {
       preferences.reminderIntervalMinutes < 15 ||
       preferences.reminderIntervalMinutes > 1440)
   )
-    throw new Error('Choose a reminder interval between 15 and 1440 minutes.');
+    throw badRequest('Choose a reminder interval between 15 and 1440 minutes.');
   const nextSettings = {
     ...payload,
     weeklyCommitmentMinutes: Number(payload.weeklyCommitmentMinutes),
@@ -131,36 +133,24 @@ async function saveSettings(payload) {
     notificationPreferences: payload.notificationPreferences ?? {},
   };
 
-  const existingSettings = await getSql('SELECT * FROM settings WHERE id_setting = $1', [
-    'primary',
-  ]);
-  const values = [
-    nextSettings.weeklyCommitmentMinutes,
-    nextSettings.weeklyBufferMinutes,
-    nextSettings.weeklyRevisionMinutes,
-    nextSettings.weekStartDay,
-    JSON.stringify(nextSettings.notificationPreferences),
-    'primary',
-  ];
-
-  if (existingSettings) {
-    await runSql(
-      `UPDATE settings
-       SET weekly_commitment_minutes = $1,
-           weekly_buffer_minutes = $2,
-           weekly_revision_minutes = $3,
-           week_start_day = $4,
-           notification_preferences = $5
-       WHERE id_setting = $6`,
-      values,
-    );
-  } else {
-    await runSql(
-      `INSERT INTO settings (id_setting, weekly_commitment_minutes, weekly_buffer_minutes, weekly_revision_minutes, week_start_day, notification_preferences)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      ['primary', ...values.slice(0, 5)],
-    );
-  }
+  await runSql(
+    `INSERT INTO settings (id_setting, weekly_commitment_minutes, weekly_buffer_minutes,
+      weekly_revision_minutes, week_start_day, notification_preferences)
+     VALUES ('primary', $1, $2, $3, $4, $5)
+     ON CONFLICT (id_setting) DO UPDATE SET
+       weekly_commitment_minutes = EXCLUDED.weekly_commitment_minutes,
+       weekly_buffer_minutes = EXCLUDED.weekly_buffer_minutes,
+       weekly_revision_minutes = EXCLUDED.weekly_revision_minutes,
+       week_start_day = EXCLUDED.week_start_day,
+       notification_preferences = EXCLUDED.notification_preferences`,
+    [
+      nextSettings.weeklyCommitmentMinutes,
+      nextSettings.weeklyBufferMinutes,
+      nextSettings.weeklyRevisionMinutes,
+      nextSettings.weekStartDay,
+      JSON.stringify(nextSettings.notificationPreferences),
+    ],
+  );
 
   return fetchSettings();
 }
@@ -202,10 +192,10 @@ async function fetchSessions() {
 }
 
 function requiredName(value, label) {
-  if (typeof value !== 'string') throw new Error(`${label} name must be text.`);
+  if (typeof value !== 'string') throw badRequest(`${label} name must be text.`);
   const name = value.trim();
-  if (name.length > 200) throw new Error(`${label} name must be 200 characters or fewer.`);
-  if (!name) throw new Error(`${label} name is required.`);
+  if (name.length > 200) throw badRequest(`${label} name must be 200 characters or fewer.`);
+  if (!name) throw badRequest(`${label} name is required.`);
   return name;
 }
 
@@ -224,7 +214,7 @@ async function requireRecord(table, id) {
 async function saveFocusArea(payload, id) {
   const previous = id ? await requireRecord('focus_areas', id) : null;
   if (payload.curriculumEnabled !== undefined && typeof payload.curriculumEnabled !== 'boolean')
-    throw new Error('Curriculum tracking must be true or false.');
+    throw badRequest('Curriculum tracking must be true or false.');
   const curriculumEnabled = payload.curriculumEnabled ?? Boolean(previous?.curriculum_enabled);
   const name = requiredName(payload.name, 'Focus Area');
   if (id) {
@@ -252,9 +242,9 @@ async function saveSubtopic(payload, id) {
       payload.id_focus_area,
     ]))
   )
-    throw new Error('Choose an existing Focus Area.');
+    throw badRequest('Choose an existing Focus Area.');
   if (!['Not started', 'In Progress', 'Completed'].includes(payload.status))
-    throw new Error('Choose a subtopic status.');
+    throw badRequest('Choose a subtopic status.');
   const completedAt =
     payload.status === 'Completed'
       ? previous?.completed_at || new Date().toISOString().slice(0, 10)
@@ -290,16 +280,16 @@ async function saveSession(payload, id) {
       typeof payload.timerId !== 'string' ||
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(payload.timerId)
     )
-      throw new Error('Invalid timer reference.');
+      throw badRequest('Invalid timer reference.');
     timerSessionId = `timer-${payload.timerId}`;
     const saved = await getSql('SELECT * FROM sessions WHERE id_session = $1', [timerSessionId]);
     if (saved) return normalizeSession(saved);
   }
   const previous = id ? await requireRecord('sessions', id) : null;
   const slots = Number(payload.slots);
-  if (!Number.isInteger(slots) || slots <= 0 || !Number.isFinite(slots))
-    throw new Error('Enter a positive whole number of 30-minute slots.');
-  if (slots > 48) throw new Error('A session cannot exceed 48 slots (24 hours).');
+  if (!Number.isInteger(slots) || slots <= 0)
+    throw badRequest('Enter a positive whole number of 30-minute slots.');
+  if (slots > 48) throw badRequest('A session cannot exceed 48 slots (24 hours).');
   const date = payload.date;
   if (
     typeof date !== 'string' ||
@@ -307,25 +297,25 @@ async function saveSession(payload, id) {
     !Number.isFinite(Date.parse(date)) ||
     new Date(date).toISOString().slice(0, 10) !== date
   )
-    throw new Error('Choose a valid session date.');
+    throw badRequest('Choose a valid session date.');
   if (date > new Date().toISOString().slice(0, 10))
-    throw new Error('Session dates cannot be in the future.');
+    throw badRequest('Session dates cannot be in the future.');
   let id_focus_area = payload.id_focus_area || null;
   const hasFreeText = payload.focusAreaName !== undefined;
   const focusAreaName = hasFreeText ? requiredName(payload.focusAreaName, 'Focus Area') : null;
   if (hasFreeText && (id_focus_area || payload.id_subtopic))
-    throw new Error('Choose an existing Focus Area or enter a new name, not both.');
+    throw badRequest('Choose an existing Focus Area or enter a new name, not both.');
   const id_subtopic = payload.id_subtopic || null;
   const selectedArea = id_focus_area
     ? await getSql('SELECT * FROM focus_areas WHERE id_focus_area = $1', [id_focus_area])
     : null;
-  if (id_focus_area && !selectedArea) throw new Error('Choose an existing Focus Area.');
+  if (id_focus_area && !selectedArea) throw badRequest('Choose an existing Focus Area.');
   const topic = id_subtopic
     ? await getSql('SELECT * FROM subtopics WHERE id_subtopic = $1', [id_subtopic])
     : null;
   const revision = selectedArea?.name.trim().toLowerCase() === 'revision';
   if (id_subtopic && (!topic || (!revision && topic.id_focus_area !== id_focus_area)))
-    throw new Error(
+    throw badRequest(
       'Choose a subtopic belonging to the selected Focus Area, or use Revision to review another area.',
     );
   if (hasFreeText) {
@@ -397,12 +387,8 @@ app.get('/api/settings', async (req, res) => {
 });
 
 app.put('/api/settings', async (req, res) => {
-  try {
-    const updatedSettings = await mutate(() => saveSettings(req.body || {}));
-    res.json(updatedSettings);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
+  const updatedSettings = await database.transaction(() => saveSettings(req.body));
+  res.json(updatedSettings);
 });
 
 app.get('/api/dashboard', async (req, res) => {
@@ -454,73 +440,56 @@ app.get('/api/dashboard', async (req, res) => {
   });
 });
 
-for (const [resource, table, list, save] of [
-  ['focus_areas', 'focus_areas', fetchFocusAreas, saveFocusArea],
-  ['subtopics', 'subtopics', fetchSubtopics, saveSubtopic],
-  ['sessions', 'sessions', fetchSessions, saveSession],
+for (const [table, list, save] of [
+  ['focus_areas', fetchFocusAreas, saveFocusArea],
+  ['subtopics', fetchSubtopics, saveSubtopic],
+  ['sessions', fetchSessions, saveSession],
 ]) {
-  app.get(`/api/${resource}`, async (req, res) => {
-    try {
-      res.json(await list());
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
+  app.get(`/api/${table}`, async (req, res) => {
+    res.json(await list());
   });
-  app.post(`/api/${resource}`, async (req, res) => {
-    try {
-      res.status(201).json(await mutate(() => save(req.body || {})));
-    } catch (error) {
-      res.status(error.status || 400).json({ error: error.message });
-    }
+  app.post(`/api/${table}`, async (req, res) => {
+    res.status(201).json(await database.transaction(() => save(req.body)));
   });
-  app.put(`/api/${resource}/:id`, async (req, res) => {
-    try {
-      res.json(await mutate(() => save(req.body || {}, req.params.id)));
-    } catch (error) {
-      res.status(error.status || 400).json({ error: error.message });
-    }
+  app.put(`/api/${table}/:id`, async (req, res) => {
+    res.json(await database.transaction(() => save(req.body, req.params.id)));
   });
-  app.delete(`/api/${resource}/:id`, async (req, res) => {
-    try {
-      await mutate(async () => {
-        const record = await requireRecord(table, req.params.id);
-        await touch([record.id_focus_area], [record.id_subtopic]);
-        if (table === 'focus_areas') {
-          await runSql(
-            'UPDATE sessions SET id_focus_area = NULL, id_subtopic = NULL, subtopic_name = NULL WHERE id_focus_area = $1',
-            [req.params.id],
-          );
-          await runSql(
-            'UPDATE sessions SET id_subtopic = NULL, subtopic_name = NULL WHERE id_subtopic IN (SELECT id_subtopic FROM subtopics WHERE id_focus_area = $1)',
-            [req.params.id],
-          );
-          await runSql('DELETE FROM subtopics WHERE id_focus_area = $1', [req.params.id]);
-        } else if (table === 'subtopics') {
-          await runSql(
-            'UPDATE sessions SET id_subtopic = NULL, subtopic_name = NULL WHERE id_subtopic = $1',
-            [req.params.id],
-          );
-        }
-        await runSql(`DELETE FROM ${table} WHERE ${primaryKeys[table]} = $1`, [req.params.id]);
-      });
-      res.json({ deleted: true });
-    } catch (error) {
-      res.status(error.status || 400).json({ error: error.message });
-    }
+  app.delete(`/api/${table}/:id`, async (req, res) => {
+    await database.transaction(async () => {
+      const record = await requireRecord(table, req.params.id);
+      await touch([record.id_focus_area], [record.id_subtopic]);
+      if (table === 'focus_areas') {
+        await runSql(
+          'UPDATE sessions SET id_focus_area = NULL, id_subtopic = NULL, subtopic_name = NULL WHERE id_focus_area = $1',
+          [req.params.id],
+        );
+        await runSql(
+          'UPDATE sessions SET id_subtopic = NULL, subtopic_name = NULL WHERE id_subtopic IN (SELECT id_subtopic FROM subtopics WHERE id_focus_area = $1)',
+          [req.params.id],
+        );
+        await runSql('DELETE FROM subtopics WHERE id_focus_area = $1', [req.params.id]);
+      } else if (table === 'subtopics') {
+        await runSql(
+          'UPDATE sessions SET id_subtopic = NULL, subtopic_name = NULL WHERE id_subtopic = $1',
+          [req.params.id],
+        );
+      }
+      await runSql(`DELETE FROM ${table} WHERE ${primaryKeys[table]} = $1`, [req.params.id]);
+    });
+    res.json({ deleted: true });
   });
 }
 
 app.use((error, req, res, next) => {
   if (res.headersSent) return next(error);
-  const status = error.type === 'entity.too.large' ? 413 : error instanceof SyntaxError ? 400 : 500;
-  res.status(status).json({
-    error:
-      status === 413
-        ? 'Request is too large.'
-        : status === 400
-          ? 'Invalid JSON request.'
-          : 'Unable to complete the request. Please try again.',
-  });
+  if (error.type === 'entity.too.large')
+    return res.status(413).json({ error: 'Request is too large.' });
+  if (error.type === 'entity.parse.failed')
+    return res.status(400).json({ error: 'Invalid JSON request.' });
+  if (error.status === 400 || error.status === 404)
+    return res.status(error.status).json({ error: error.message });
+  console.error('Request failed:', error);
+  res.status(500).json({ error: 'Unable to complete the request. Please try again.' });
 });
 
 database

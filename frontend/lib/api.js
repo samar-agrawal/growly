@@ -34,19 +34,19 @@ export async function fetchDashboardData() {
   return { settings, dashboard, focus_areas, subtopics, sessions };
 }
 
-export async function saveSettings(settings) {
+export function saveSettings(settings) {
   return requestJson('/api/settings', { method: 'PUT', body: settings });
 }
 
-export async function createFocusArea(focusArea) {
+export function createFocusArea(focusArea) {
   return requestJson('/api/focus_areas', { method: 'POST', body: focusArea });
 }
 
-export async function createSubtopic(subtopic) {
+export function createSubtopic(subtopic) {
   return requestJson('/api/subtopics', { method: 'POST', body: subtopic });
 }
 
-export async function createSession(session) {
+export function createSession(session) {
   return requestJson('/api/sessions', { method: 'POST', body: session });
 }
 

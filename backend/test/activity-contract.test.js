@@ -1,3 +1,4 @@
+const { Client } = require('pg');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
@@ -110,6 +111,23 @@ test('PostgreSQL: review recency, relationship edits, validation and health', as
     assert.equal(keptReview.id_focus_area, revision.id_focus_area);
     assert.equal(keptReview.id_subtopic, null);
     assert.deepEqual(await request('/api/subtopics'), []);
+    // A database failure must reach central error handling as 500, not validation 400.
+    const client = new Client({ connectionString: database.url });
+    await client.connect();
+    try {
+      await client.query('DROP TABLE settings');
+      for (const method of ['GET', 'PUT']) {
+        const result = await request(
+          '/api/settings',
+          method === 'PUT' ? {} : undefined,
+          method,
+          500,
+        );
+        assert.equal(result.error, 'Unable to complete the request. Please try again.');
+      }
+    } finally {
+      await client.end();
+    }
   } finally {
     if (server && server.exitCode === null) {
       const exited = once(server, 'exit');

@@ -16,7 +16,7 @@ function createDatabase(env = process.env) {
   const database = {
     allSql: async (sql, params) => (await query(sql, params)).rows,
     getSql: async (sql, params) => (await query(sql, params)).rows[0],
-    runSql: async (sql, params) => ({ changes: (await query(sql, params)).rowCount }),
+    runSql: query,
     async transaction(operation) {
       const client = await pool.connect();
       try {

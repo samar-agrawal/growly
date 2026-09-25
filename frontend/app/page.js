@@ -89,7 +89,7 @@ export default function HomePage() {
     const result = await fetchDashboardData();
     setData(result);
     setSettings({
-      ...result.settings,
+      notificationPreferences: result.settings.notificationPreferences || {},
       weeklyCommitmentHours:
         result.settings.weeklyCommitmentMinutes == null
           ? ''
@@ -122,39 +122,36 @@ export default function HomePage() {
     setError('');
     setNotice('');
     setDeleting(remove);
+    const defaults = {
+      area: { name: '', description: '', curriculumEnabled: false },
+      subtopic: { name: '', id_focus_area, status: '', notes: '' },
+      session: {
+        id_focus_area,
+        id_subtopic: '',
+        focusAreaMode: 'existing',
+        focusAreaName: '',
+        date: '',
+        slots: '',
+        outcome: '',
+        notes: '',
+      },
+    }[kind];
     setDraft({
-      name: '',
-      description: '',
-      curriculumEnabled: false,
-      id_focus_area,
-      focusAreaMode: 'existing',
-      focusAreaName: '',
-      status: '',
-      notes: '',
-      date: '',
-      slots: '',
-      id_subtopic: '',
-      outcome: '',
-      ...record,
+      ...Object.fromEntries(
+        Object.entries(defaults).map(([key, value]) => [key, record?.[key] ?? value]),
+      ),
       id: recordId(kind, record),
-      ...(record
-        ? {
-            description: record.description || '',
-            notes: record.notes || '',
-            outcome: record.outcome || '',
-            id_focus_area: record.id_focus_area || id_focus_area,
-            id_subtopic: record.id_subtopic || '',
-          }
-        : {}),
     });
     setModal(kind);
   }
-  function close() {
-    if (busy) return;
+  function dismissDialog() {
     dialog.current?.close();
     setModal(null);
     if (trigger.current?.isConnected) trigger.current.focus();
     else heading.current?.focus();
+  }
+  function close() {
+    if (!busy) dismissDialog();
   }
   function update(key, value) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -210,10 +207,7 @@ export default function HomePage() {
             payload,
             [areaName || 'Independent study', subtopicName].filter(Boolean).join(' · '),
           );
-          dialog.current?.close();
-          setModal(null);
-          if (trigger.current?.isConnected) trigger.current.focus();
-          else heading.current?.focus();
+          dismissDialog();
           setNotice('Timer started. You’ll review the session before it is logged.');
           return;
         }
@@ -224,18 +218,13 @@ export default function HomePage() {
           );
         if (draft.timerId && studyTimer.timer?.id === draft.timerId) studyTimer.clear();
       }
-      dialog.current?.close();
-      setModal(null);
       await refresh().catch(() =>
         setError(
           'Your change was saved, but the view could not refresh. Reload to see the latest data.',
         ),
       );
+      dismissDialog();
       setNotice(`${labels[modal]} ${deleting ? 'deleted' : draft.id ? 'updated' : 'saved'}.`);
-      dialog.current?.close();
-      setModal(null);
-      if (trigger.current?.isConnected) trigger.current.focus();
-      else heading.current?.focus();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -250,7 +239,6 @@ export default function HomePage() {
     setNotice('');
     try {
       await saveSettings({
-        ...data.settings,
         notificationPreferences: settings.notificationPreferences || {},
         weekStartDay: settings.weekStartDay,
         weeklyCommitmentMinutes: Math.round(Number(settings.weeklyCommitmentHours) * 60),
@@ -329,11 +317,9 @@ export default function HomePage() {
     </div>
   );
 
-  const recentFirst = (items) =>
-    [...items].sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
   const visibleAreas =
     tab === 'overview'
-      ? recentFirst(focus_areas).slice(0, 5)
+      ? focus_areas.slice(0, 5)
       : focus_areas.filter(
           (area) =>
             `${area.name} ${area.description || ''}`.toLowerCase().includes(search.toLowerCase()) ||
@@ -346,9 +332,7 @@ export default function HomePage() {
   const areaCards = (
     <div className="area-grid">
       {visibleAreas.map((area, index) => {
-        const allChildren = recentFirst(
-          subtopics.filter((t) => t.id_focus_area === area.id_focus_area),
-        );
+        const allChildren = subtopics.filter((t) => t.id_focus_area === area.id_focus_area);
         const completed = allChildren.filter((topic) => topic.status === 'Completed').length;
         const completion = allChildren.length
           ? Math.round((completed / allChildren.length) * 100)
@@ -1255,18 +1239,14 @@ export default function HomePage() {
                       </Field>
                       <Field
                         label="Slots"
-                        hint={
-                          draft.id && !Number.isInteger(draft.slots)
-                            ? 'Existing session: keep its original time, or enter whole 30-minute slots.'
-                            : `1 slot = 30 minutes${draft.slots ? ` · ${hours(Number(draft.slots) * 30)} hours` : ''}`
-                        }
+                        hint={`1 slot = 30 minutes${draft.slots ? ` · ${hours(Number(draft.slots) * 30)} hours` : ''}`}
                       >
                         <input
                           type="number"
                           required
-                          max={draft.id && Number(draft.slots) > 48 ? undefined : 48}
-                          min={draft.id && !Number.isInteger(draft.slots) ? '0.01' : '1'}
-                          step={draft.id && !Number.isInteger(draft.slots) ? 'any' : '1'}
+                          max={48}
+                          min={1}
+                          step={1}
                           value={draft.slots}
                           onChange={(e) => update('slots', e.target.value)}
                         />
