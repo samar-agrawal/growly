@@ -1,6 +1,7 @@
 'use client';
 
 import { cloneElement, useEffect, useId, useRef, useState } from 'react';
+import GrowthObjectives from '../components/GrowthObjectives';
 import ActivityOverview from '../components/ActivityOverview';
 import StudyTimer, { useStudyTimer } from '../components/StudyTimer';
 import StudyNotifications, {
@@ -20,6 +21,7 @@ import {
 const hours = (minutes = 0) =>
   new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(minutes / 60);
 const titles = {
+  objectives: 'Learning with a purpose.',
   overview: 'Your brain called. It’s curious.',
   library: 'Curiosity, with folders.',
   sessions: 'Your brain has receipts.',
@@ -436,6 +438,7 @@ export default function HomePage() {
             ['library', 'book', 'Focus Areas'],
             ['sessions', 'clock', 'Sessions'],
             ['activity', 'book', 'Activity'],
+            ['objectives', 'leaf', 'Growth Objectives'],
             ['settings', 'settings', 'Settings'],
           ].map(([id, icon, label]) => (
             <button
@@ -485,7 +488,9 @@ export default function HomePage() {
                     ? 'Sessions'
                     : tab === 'activity'
                       ? 'Activity'
-                      : 'Overview'}
+                      : tab === 'objectives'
+                        ? 'Growth Objectives'
+                        : 'Overview'}
             </span>
           </span>
           <span className="date-label">
@@ -518,7 +523,9 @@ export default function HomePage() {
                       ? 'Review, edit, and organize your complete learning history.'
                       : tab === 'activity'
                         ? 'See what is fresh, what is fading, and what deserves another look.'
-                        : 'Build a sustainable weekly learning habit.'}
+                        : tab === 'objectives'
+                          ? 'Choose the capabilities you want to develop and define success.'
+                          : 'Build a sustainable weekly learning habit.'}
               </p>
             </div>
             <button className="primary" onClick={() => open('session')}>
@@ -1022,6 +1029,7 @@ export default function HomePage() {
               </div>
             </form>
           )}
+          {tab === 'objectives' && <GrowthObjectives data={data} />}
           <footer className="page-footer">
             <Icon name="leaf" /> Grow at your own pace. Plants rarely sprint.
           </footer>

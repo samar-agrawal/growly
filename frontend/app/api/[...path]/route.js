@@ -4,7 +4,9 @@ async function proxy(request, { params }) {
   const { path } = await params;
   if (
     !path?.length ||
-    !['settings', 'dashboard', 'focus_areas', 'subtopics', 'sessions'].includes(path[0])
+    !['settings', 'dashboard', 'focus_areas', 'subtopics', 'sessions', 'objectives'].includes(
+      path[0],
+    )
   ) {
     return Response.json({ error: 'Unknown API route.' }, { status: 404 });
   }

@@ -2,6 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const { createDatabase } = require('./database');
 const { getWeek } = require('./week');
+const { installObjectives } = require('./objectives');
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
@@ -380,6 +381,8 @@ app.get('/health', async (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+installObjectives(app, database);
 
 app.get('/api/settings', async (req, res) => {
   const settings = await fetchSettings();

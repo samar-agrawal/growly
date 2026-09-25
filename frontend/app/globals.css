@@ -1428,3 +1428,37 @@ h1:focus {
     flex-basis: 100%;
   }
 }
+
+.objectives-group {
+  margin-top: 28px;
+}
+.objectives-group > h3 {
+  margin-bottom: 16px;
+}
+.objective-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.objective-copy {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.objective-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: auto;
+}
+.objective-links {
+  max-height: 230px;
+  overflow-y: auto;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 12px;
+  padding: 16px;
+}
+.objective-links .checkbox {
+  margin-bottom: 10px;
+  overflow-wrap: anywhere;
+}

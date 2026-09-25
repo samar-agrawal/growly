@@ -46,3 +46,37 @@ CREATE INDEX IF NOT EXISTS sessions_subtopic ON sessions(id_subtopic);
 
 
 ALTER TABLE focus_areas DROP COLUMN IF EXISTS archived_at;
+
+CREATE TABLE IF NOT EXISTS objective_preferences (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  enabled BOOLEAN NOT NULL
+);
+CREATE TABLE IF NOT EXISTS objectives (
+  id_objective TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  motivation TEXT NOT NULL DEFAULT '',
+  priority TEXT NOT NULL CHECK (priority IN ('Low', 'Medium', 'High')),
+  status TEXT NOT NULL CHECK (status IN ('Active', 'Archived', 'Achieved')),
+  target_date TEXT,
+  success_criteria TEXT NOT NULL DEFAULT '',
+  achieved_at TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS objective_focus_areas (
+  id_objective TEXT NOT NULL REFERENCES objectives(id_objective) ON DELETE CASCADE,
+  id_focus_area TEXT NOT NULL REFERENCES focus_areas(id_focus_area) ON DELETE CASCADE,
+  PRIMARY KEY (id_objective, id_focus_area)
+);
+
+CREATE TABLE IF NOT EXISTS objective_subtopics (
+  id_objective TEXT NOT NULL REFERENCES objectives(id_objective) ON DELETE CASCADE,
+  id_subtopic TEXT NOT NULL REFERENCES subtopics(id_subtopic) ON DELETE CASCADE,
+  PRIMARY KEY (id_objective, id_subtopic)
+);
+
+CREATE TABLE IF NOT EXISTS objective_sessions (
+  id_objective TEXT NOT NULL REFERENCES objectives(id_objective) ON DELETE CASCADE,
+  id_session TEXT NOT NULL REFERENCES sessions(id_session) ON DELETE CASCADE,
+  PRIMARY KEY (id_objective, id_session)
+);
