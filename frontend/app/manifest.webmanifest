@@ -1,0 +1,23 @@
+{
+  "id": "/",
+  "name": "Growly",
+  "short_name": "Growly",
+  "description": "Weekly learning tracking dashboard",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f9f6",
+  "theme_color": "#36785a",
+  "icons": [
+    {
+      "src": "/icon1.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon2.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

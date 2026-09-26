@@ -1354,8 +1354,12 @@ dialog h2 {
   font-size: 10px;
 }
 @media (max-width: 760px) {
-  .study-timer .spread {
-    flex-wrap: wrap;
+  .study-timer,
+  button[value="start-timer"] {
+    display: none;
+  }
+  .main-content:has(.study-timer) {
+    padding-bottom: 0;
   }
   .modal-footer {
     flex-wrap: wrap;

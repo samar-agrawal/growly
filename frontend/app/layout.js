@@ -5,6 +5,8 @@ export const metadata = {
   description: 'Weekly learning tracking dashboard',
 };
 
+export const viewport = { themeColor: '#36785a' };
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en">

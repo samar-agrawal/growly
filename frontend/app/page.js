@@ -18,6 +18,11 @@ import {
   deleteRecord,
 } from '../lib/api';
 
+const today = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+
 const hours = (minutes = 0) =>
   new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(minutes / 60);
 const titles = {
@@ -126,13 +131,13 @@ export default function HomePage() {
     setDeleting(remove);
     const defaults = {
       area: { name: '', description: '', curriculumEnabled: false },
-      subtopic: { name: '', id_focus_area, status: '', notes: '' },
+      subtopic: { name: '', id_focus_area, status: 'Not started', notes: '' },
       session: {
         id_focus_area,
         id_subtopic: '',
         focusAreaMode: 'existing',
         focusAreaName: '',
-        date: '',
+        date: today(),
         slots: '',
         outcome: '',
         notes: '',
@@ -1240,7 +1245,7 @@ export default function HomePage() {
                         <input
                           type="date"
                           required
-                          max={new Date().toISOString().slice(0, 10)}
+                          max={today()}
                           value={draft.date}
                           onChange={(e) => update('date', e.target.value)}
                         />
